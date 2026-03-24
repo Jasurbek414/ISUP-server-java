@@ -1,0 +1,54 @@
+# Java/Gradle
+.gradle/
+build/
+bin/
+out/
+*.class
+*.jar
+*.war
+*.ear
+!gradle/wrapper/gradle-wrapper.jar
+
+# Frontend (Node/React)
+node_modules/
+dist/
+build-frontend/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+frontend-react/node_modules/
+frontend-react/dist/
+frontend-react/build/
+
+# IDE/Editors
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project/
+.classpath/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Other
+tmp/
+temp/
+backups/

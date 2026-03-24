@@ -1,0 +1,11 @@
+tunnel: 71292e88-af84-4cb4-b18b-fd491ef446bc
+credentials-file: /etc/cloudflared/71292e88-af84-4cb4-b18b-fd491ef446bc.json
+
+ingress:
+  - hostname: fake-faceid.uzinc.uz
+    service: http://frontend:80
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      tcpKeepAlive: 30s
+  - service: http_status:404
