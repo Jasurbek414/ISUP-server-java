@@ -97,4 +97,10 @@ public class DeviceController {
         sessions.findByDeviceId(deviceId).ifPresent(DeviceSession::close);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{deviceId}/open")
+    public ResponseEntity<?> open(@PathVariable String deviceId, @RequestParam(defaultValue = "1") int door) {
+        service.openDoor(deviceId, door);
+        return ResponseEntity.ok(Map.of("message", "Open command sent to " + deviceId, "door", door));
+    }
 }

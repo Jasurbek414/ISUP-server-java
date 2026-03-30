@@ -26,13 +26,16 @@ public class DeviceService {
 
     private final DeviceRepository        deviceRepo;
     private final ProjectRepository       projectRepo;
+    private final com.isup.repository.EventLogRepository eventRepo;
     private final SessionRegistry         sessions;
     private final DeviceCapabilityDetector capabilityDetector;
 
     public DeviceService(DeviceRepository deviceRepo, ProjectRepository projectRepo,
+                         com.isup.repository.EventLogRepository eventRepo,
                          SessionRegistry sessions, DeviceCapabilityDetector capabilityDetector) {
         this.deviceRepo         = deviceRepo;
         this.projectRepo        = projectRepo;
+        this.eventRepo          = eventRepo;
         this.sessions           = sessions;
         this.capabilityDetector = capabilityDetector;
     }
@@ -66,13 +69,22 @@ public class DeviceService {
     public void onDeviceConnected(String deviceId, String ip) {
         Optional<Device> existing = deviceRepo.findByDeviceId(deviceId);
         if (existing.isPresent()) {
+            String currentIp = existing.get().getDeviceIp();
+            // Don't overwrite the real IP with the Docker bridge's source NAT IP
+            if (ip.startsWith("172.") || ip.startsWith("10.") && currentIp != null && !currentIp.isEmpty() && !currentIp.startsWith("172.")) {
+                ip = currentIp;
+            }
             deviceRepo.updateStatus(deviceId, "online", Instant.now(), ip);
+            // Ensure deviceIp is also updated for IsapiService calls
+            existing.get().setDeviceIp(ip);
+            deviceRepo.save(existing.get());
         } else if (allowUnknownDevices) {
             // Auto-register unknown device
             Device d = Device.builder()
                     .deviceId(deviceId)
                     .name(deviceId)
                     .ipAddress(ip)
+                    .deviceIp(ip) // Set this too!
                     .status("online")
                     .lastSeen(Instant.now())
                     .build();
@@ -91,6 +103,23 @@ public class DeviceService {
             d.setLastSeen(Instant.now());
             deviceRepo.save(d);
         });
+    }
+
+    /**
+     * Sends a remote command to open the door (v5.0 CONTROL_DOOR)
+     */
+    public void openDoor(String deviceId, int doorNo) {
+        sessions.findByDeviceIdAndPort(deviceId, 7660).ifPresent(session -> {
+            log.info("Remote Door Control: Sending OPEN command to device {} (Door {})", deviceId, doorNo);
+            session.getChannel().writeAndFlush(com.isup.protocol.IsupProtocol.buildV5DoorControl(
+                session.getSessionId(), doorNo, "open"
+            ));
+        });
+    }
+
+    public List<com.isup.entity.EventLog> getRecentEvents(String deviceId, int limit) {
+        return eventRepo.findByDeviceIdOrderByCreatedAtDesc(deviceId, org.springframework.data.domain.PageRequest.of(0, limit))
+                .getContent();
     }
 
     public List<Device> findAll() {

@@ -1,5 +1,10 @@
 server:
   port: 8090
+logging:
+  level:
+    org.springframework.web.servlet.DispatcherServlet: DEBUG
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+    com.isup: DEBUG
 
 spring:
   application:
@@ -37,6 +42,7 @@ isup:
     port: ${SADP_UDP_PORT:37020}
     enabled: true
   allow-unknown-devices: ${ISUP_ALLOW_UNKNOWN_DEVICES:true}
+  server-ip: ${ISUP_SERVER_IP:127.0.0.1}
   webhook:
     connect-timeout-ms: 5000
     read-timeout-ms: 10000
@@ -47,7 +53,7 @@ isup:
   admin:
     secret: ${ADMIN_SECRET:changeme123}
     username: ${ADMIN_USERNAME:admin}
-    password: ${ADMIN_PASSWORD:admin123}
+    password: ${ADMIN_PASSWORD:isup1234}
   alert:
     telegram:
       token: ${ALERT_TELEGRAM_TOKEN:}

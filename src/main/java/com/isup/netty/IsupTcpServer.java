@@ -30,6 +30,7 @@ public class IsupTcpServer {
 
     private final IsupMessageHandler messageHandler;
     private final IsupPacketEncoder  encoder;
+    private final IsupPacketDecoder  decoder;
     private final IpBanManager       ipBanManager;
 
     private EventLoopGroup bossGroup;
@@ -37,9 +38,11 @@ public class IsupTcpServer {
 
     public IsupTcpServer(IsupMessageHandler messageHandler,
                          IsupPacketEncoder encoder,
+                         IsupPacketDecoder decoder,
                          IpBanManager ipBanManager) {
         this.messageHandler = messageHandler;
         this.encoder        = encoder;
+        this.decoder        = decoder;
         this.ipBanManager   = ipBanManager;
     }
 
@@ -55,11 +58,20 @@ public class IsupTcpServer {
             .option(ChannelOption.SO_REUSEADDR, true)
             .childOption(ChannelOption.TCP_NODELAY, true)
             .childOption(ChannelOption.SO_KEEPALIVE, true)
-            .childHandler(new IsupChannelInitializer(messageHandler, encoder, ipBanManager));
+            .childHandler(new IsupChannelInitializer(messageHandler, encoder, decoder, ipBanManager));
 
-        ChannelFuture future = bootstrap.bind(port).sync();
-        log.info("ISUP TCP server started on port {}", port);
-        future.channel().closeFuture().addListener(f -> log.info("ISUP TCP server stopped"));
+        bootstrap.bind(port).sync();
+        log.info("ISUP TCP server listening on port {}", port);
+        
+        // Also listen on Alarm Port 7661 if main port is 7660
+        if (port == 7660) {
+            try {
+                bootstrap.bind(7661).sync();
+                log.info("ISUP TCP server listening on port 7661 (ALARM)");
+            } catch (Exception e) {
+                log.warn("Failed to bind port 7661, it might already be in use: {}", e.getMessage());
+            }
+        }
     }
 
     @PreDestroy

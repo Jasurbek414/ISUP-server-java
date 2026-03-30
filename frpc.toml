@@ -4,22 +4,29 @@ auth.method = "token"
 auth.token = "freefrp.net"
 
 [[proxies]]
-name = "isup-7660"
+name = "isup-7660-tcp"
 type = "tcp"
-localIP = "127.0.0.1"
+localIP = "isup-server"
 localPort = 7660
 remotePort = 17660
 
 [[proxies]]
-name = "device1-isapi"
-type = "tcp"
-localIP = "192.168.23.4"
-localPort = 443
-remotePort = 18001
+name = "isup-7660-udp"
+type = "udp"
+localIP = "isup-server"
+localPort = 7660
+remotePort = 17660
 
 [[proxies]]
-name = "device2-isapi"
+name = "isup-7661-tcp"
 type = "tcp"
-localIP = "192.168.1.101"
-localPort = 80
-remotePort = 18002
+localIP = "isup-server"
+localPort = 7661
+remotePort = 17661
+
+[[proxies]]
+name = "isup-7661-udp"
+type = "udp"
+localIP = "isup-server"
+localPort = 7661
+remotePort = 17661

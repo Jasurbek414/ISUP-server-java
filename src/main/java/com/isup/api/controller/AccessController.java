@@ -13,20 +13,23 @@ import java.util.Map;
 @RequestMapping("/api/access")
 public class AccessController {
 
-    private final IsapiService         isapiService;
-    private final AccessRuleRepository ruleRepo;
+    private final com.isup.api.service.DeviceService deviceService;
+    private final IsapiService                 isapiService;
+    private final AccessRuleRepository         ruleRepo;
 
-    public AccessController(IsapiService isapiService, AccessRuleRepository ruleRepo) {
-        this.isapiService = isapiService;
-        this.ruleRepo     = ruleRepo;
+    public AccessController(com.isup.api.service.DeviceService deviceService, 
+                            IsapiService isapiService,
+                            AccessRuleRepository ruleRepo) {
+        this.deviceService = deviceService;
+        this.isapiService  = isapiService;
+        this.ruleRepo      = ruleRepo;
     }
 
     /** POST /api/access/door/open */
     @PostMapping("/door/open")
     public ResponseEntity<?> openDoor(@RequestBody DoorRequest req) {
-        boolean ok = isapiService.openDoor(req.deviceId(), req.doorNo() > 0 ? req.doorNo() : 1);
-        return ok ? ResponseEntity.ok(Map.of("status", "opened"))
-                  : ResponseEntity.internalServerError().body(Map.of("status", "failed"));
+        deviceService.openDoor(req.deviceId(), req.doorNo() > 0 ? req.doorNo() : 1);
+        return ResponseEntity.ok(Map.of("status", "opened", "deviceId", req.deviceId()));
     }
 
     /** POST /api/access/door/close */

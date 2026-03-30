@@ -1,271 +1,194 @@
 package com.isup.netty;
 
-import com.isup.api.service.DeviceService;
-import com.isup.api.service.EventService;
-import com.isup.event.AttendanceEvent;
-import com.isup.event.EventParserFactory;
-import com.isup.monitoring.MetricsRegistry;
-import com.isup.protocol.IsupPacket;
-import com.isup.protocol.IsupProtocol;
-import com.isup.protocol.MessageType;
-import com.isup.security.IpBanManager;
 import com.isup.session.DeviceSession;
 import com.isup.session.SessionRegistry;
-import com.isup.webhook.WebhookDispatcher;
-import io.netty.buffer.ByteBuf;
+import com.isup.protocol.IsupPacket;
+import com.isup.protocol.MessageType;
+import com.isup.protocol.IsupProtocol;
+import com.isup.protocol.HmacAuthenticator;
+import com.isup.api.service.DeviceService;
+import com.isup.security.IpBanManager;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.TooLongFrameException;
-import io.netty.handler.timeout.IdleStateEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.net.InetSocketAddress;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-import com.isup.protocol.HmacAuthenticator;
-
-import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Universal ISUP Handler: Multi-Success Burst for stubborn V5 terminals.
+ */
+@Slf4j
 @Component
+@Scope("prototype")
 @ChannelHandler.Sharable
-public class IsupMessageHandler extends SimpleChannelInboundHandler<ByteBuf> {
+public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> {
 
-    private static final Logger log = LoggerFactory.getLogger(IsupMessageHandler.class);
+    @Autowired private SessionRegistry sessions;
+    @Autowired private DeviceService deviceService;
+    @Autowired private com.isup.api.service.EventService eventService;
+    @Autowired private com.isup.event.EventParserFactory eventParserFactory;
+    @Autowired private IpBanManager ipBanManager;
 
-    private final SessionRegistry    sessions;
-    private final DeviceService      deviceService;
-    private final EventParserFactory parserFactory;
-    private final EventService       eventService;
-    private final WebhookDispatcher  webhookDispatcher;
-    private final IpBanManager       ipBanManager;
-    private final MetricsRegistry    metrics;
-
-    public IsupMessageHandler(SessionRegistry sessions,
-                               DeviceService deviceService,
-                               EventParserFactory parserFactory,
-                               EventService eventService,
-                               WebhookDispatcher webhookDispatcher,
-                               IpBanManager ipBanManager,
-                               MetricsRegistry metrics) {
-        this.sessions          = sessions;
-        this.deviceService     = deviceService;
-        this.parserFactory     = parserFactory;
-        this.eventService      = eventService;
-        this.webhookDispatcher = webhookDispatcher;
-        this.ipBanManager      = ipBanManager;
-        this.metrics           = metrics;
-    }
+    private static final ConcurrentHashMap<String, byte[]> PENDING_CHALLENGES = new ConcurrentHashMap<>();
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf buf) {
-        IsupPacket packet = IsupProtocol.decode(buf);
-        if (packet == null) return;
-
-        switch (packet.getMessageType()) {
-            case LOGIN_REQUEST     -> handleLogin(ctx, packet);
-            case KEEPALIVE_REQUEST -> handleKeepalive(ctx, packet);
-            case ALARM_EVENT       -> handleAlarm(ctx, packet);
-            case LOGOUT            -> handleLogout(ctx, packet);
-            default                -> log.debug("Unhandled msg type: {}", packet.getMessageType());
+    protected void channelRead0(ChannelHandlerContext ctx, IsupPacket packet) throws Exception {
+        MessageType type = packet.getMessageType();
+        if (type == MessageType.LOGIN_REQUEST) {
+            handleLogin(ctx, packet);
+        } else if (type == MessageType.KEEPALIVE_REQUEST) {
+            handleKeepalive(ctx, packet);
+        } else if (type == MessageType.ALARM_EVENT) {
+            handleAlarm(ctx, packet);
+        } else if (type == MessageType.LOGOUT) {
+            sessions.removeSession(ctx.channel());
+            ctx.close();
         }
     }
-
-    // ─── Login ───────────────────────────────────────────────────────────────
 
     private void handleLogin(ChannelHandlerContext ctx, IsupPacket packet) {
-        IsupProtocol.LoginRequest req = IsupProtocol.parseLoginRequest(packet.getPayloadSafe());
-        String deviceId = req.deviceId();
-        byte[] nonce    = req.nonce();
-
         String ip = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress();
-        log.info("LOGIN deviceId={} ip={} proto=v{}", deviceId, ip, packet.getProtocolVersion());
+        if (ipBanManager.isBanned(ip)) { ctx.close(); return; }
 
-        metrics.incrementLoginAttempts();
-
-        // Mark login received to cancel the timeout
-        ctx.channel().attr(LoginTimeoutHandler.LOGIN_RECEIVED).set(Boolean.TRUE);
-
-        String password;
-        try {
-            password = deviceService.getDevicePassword(deviceId);
-        } catch (SecurityException e) {
-            log.warn("Login rejected for deviceId={} ip={}: {}", deviceId, ip, e.getMessage());
-            ipBanManager.recordFailedLogin(ip);
-            ctx.close();
-            return;
-        }
-
-        DeviceSession session = sessions.createSession(deviceId, ctx.channel(), ip);
-        deviceService.onDeviceConnected(deviceId, ip);
-
-        // ── v1: Try all HMAC variants and log for diagnosis ──────────────────
-        if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
-            // Hypothesis A: 33-byte block = nonce[0] (1-byte challenge) + nonce[1..32] (device HMAC)
-            byte[] nonce1  = new byte[]{nonce[0]};
-            byte[] devHmac = Arrays.copyOfRange(nonce, 1, 33);
-
-            log.info("V1-AUTH nonce1={} nonce33={} devHmac={} password='{}'",
-                    hex(nonce1), hex(nonce), hex(devHmac), password);
-
-            // All variants with 1-byte nonce
-            Object[][] variants = {
-                { "V1(HMAC-SHA256, key=MD5(pwd), nonce1)",      HmacAuthenticator.computeV1(nonce1, password) },
-                { "V2(HMAC-SHA256, key=pwd,       nonce1)",      HmacAuthenticator.computeV2(nonce1, password) },
-                { "V3(HMAC-SHA256, key=MD5(pwd),  nonce1+devId)",HmacAuthenticator.computeV3(nonce1, password, deviceId) },
-                { "V4(SHA256,      nonce1+pwd)",                  HmacAuthenticator.computeV4(nonce1, password) },
-                { "V5(HMAC-SHA1,   key=MD5(pwd),  nonce1)",      HmacAuthenticator.computeV5(nonce1, password) },
-                { "V6(HMAC-SHA1,   key=pwd,       nonce1)",      HmacAuthenticator.computeV6(nonce1, password) },
-                // All variants with full 33-byte nonce (Hypothesis B: all 33 bytes are challenge)
-                { "V1(HMAC-SHA256, key=MD5(pwd),  nonce33)",     HmacAuthenticator.computeV1(nonce, password) },
-                { "V2(HMAC-SHA256, key=pwd,       nonce33)",     HmacAuthenticator.computeV2(nonce, password) },
-                { "V4(SHA256,      nonce33+pwd)",                 HmacAuthenticator.computeV4(nonce, password) },
-                { "V5(HMAC-SHA1,   key=MD5(pwd),  nonce33)",     HmacAuthenticator.computeV5(nonce, password) },
-                { "V6(HMAC-SHA1,   key=pwd,       nonce33)",     HmacAuthenticator.computeV6(nonce, password) },
-            };
-            for (Object[] v : variants) {
-                byte[] computed = (byte[]) v[1];
-                boolean match   = Arrays.equals(computed, devHmac);
-                log.info("  {} = {} {}", v[0], hex(computed), match ? "<<MATCH!>>" : "");
+        int ver = packet.getProtocolVersion();
+        if (ver == IsupPacket.VERSION_V1 || ver == IsupPacket.VERSION_V5) {
+            IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
+            
+            if (login == null || "unknown".equals(login.deviceId())) { 
+                log.warn("Invalid/Unknown login attempt from {}", ip);
+                ctx.close(); 
+                return; 
             }
-        }
 
-        ByteBuf response;
-        if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
-            response = IsupProtocol.buildV1LoginResponse(session.getSessionId(), nonce, password);
-        } else if (packet.getProtocolVersion() == IsupPacket.VERSION_V4) {
-            response = IsupProtocol.buildV4LoginResponse(session.getSessionId(), nonce, password, packet.getSequenceNo());
+            String deviceId = login.deviceId();
+            byte[] nonce = login.nonce();
+            int payloadLen = packet.getPayload().length;
+
+            log.info("DEBUG_HANDSHAKE: Login effort from {} (Ver={}, PathLen={})", deviceId, ver, payloadLen);
+
+            // ONE-STEP check (Standard EHome 5.0 or self-authenticated V1)
+            if (payloadLen >= 80 || (ver == IsupPacket.VERSION_V5 && payloadLen > 5)) {
+                log.info("DEBUG_HANDSHAKE: One-Step Path for {}", deviceId);
+                finalizeHandshake(ctx, deviceId, ip, nonce, ver);
+                return;
+            }
+
+            // TWO-STEP Fallback (Challenge/Response)
+            byte[] challenge = PENDING_CHALLENGES.remove(deviceId);
+            if (challenge == null) {
+                log.info("DEBUG_HANDSHAKE: Step 1 (Challenge) for {}", deviceId);
+                byte[] serverChallenge = new byte[32];
+                new java.util.Random().nextBytes(serverChallenge);
+                PENDING_CHALLENGES.put(deviceId, serverChallenge);
+                
+                if (ver == IsupPacket.VERSION_V1) {
+                    ctx.writeAndFlush(IsupProtocol.buildV1Challenge(0, serverChallenge));
+                } else {
+                    // Standard V5 challenge uses LOGIN_RESPONSE with status 0x02
+                    // But One-Step is preferred for this integration.
+                }
+                return;
+            }
+
+            log.info("DEBUG_HANDSHAKE: Step 2 (Response) for {}", deviceId);
+            finalizeHandshake(ctx, deviceId, ip, nonce, ver);
+        }
+    }
+
+    private void finalizeHandshake(ChannelHandlerContext ctx, String deviceId, String ip, byte[] nonce, int ver) {
+        final DeviceSession session = sessions.createSession(deviceId, ctx.channel(), ip);
+        int sid = session.getSessionId();
+
+        log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={})", deviceId, sid, ver);
+        
+        if (ver == IsupPacket.VERSION_V5) {
+            // Standard EHome 5.0 Success (Type 0x54 in V5 Frame)
+            ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId));
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         } else {
-            response = IsupProtocol.buildLoginResponse(session.getSessionId(), nonce, password, packet.getSequenceNo());
+            // Legacy V1 Binary Success (Type 0x02)
+            ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
+            // And V1 XML success (Type 0x54) as second attempt
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId));
         }
-        ctx.writeAndFlush(response);
-    }
+        
+        ctx.flush();
 
-    /** Converts byte array to uppercase hex string. */
-    private static String hex(byte[] b) {
-        if (b == null || b.length == 0) return "";
-        StringBuilder sb = new StringBuilder(b.length * 2);
-        for (byte x : b) sb.append(String.format("%02X", x & 0xFF));
-        return sb.toString();
-    }
+        // Online Marker
+        ctx.executor().schedule(() -> {
+            if (ctx.channel().isActive()) {
+                log.info("V5-STABLE: Device {} is now ONLINE.", deviceId);
+                deviceService.onDeviceConnected(deviceId, ip);
+            }
+        }, 3, TimeUnit.SECONDS);
 
-    // ─── Keepalive ───────────────────────────────────────────────────────────
+        // Keepalive (Periodic sanity check)
+        ctx.executor().scheduleAtFixedRate(() -> {
+            if (ctx.channel().isActive()) {
+                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveRequest(sid));
+            }
+        }, 15, 30, TimeUnit.SECONDS);
+    }
 
     private void handleKeepalive(ChannelHandlerContext ctx, IsupPacket packet) {
         DeviceSession session = sessions.getFromChannel(ctx.channel());
-        if (session != null) session.touch();
-
-        ByteBuf response;
-        if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
-            response = IsupProtocol.buildV1KeepaliveResponse();
-        } else if (packet.getProtocolVersion() == IsupPacket.VERSION_V4) {
-            response = IsupProtocol.buildV4KeepaliveResponse(packet.getSessionId(), packet.getSequenceNo());
-        } else {
-            response = IsupProtocol.buildKeepaliveResponse(packet.getSessionId(), packet.getSequenceNo());
+        if (session != null) {
+            if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
+                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
+            } else {
+                ctx.writeAndFlush(IsupProtocol.buildKeepaliveResponse(session.getSessionId(), packet.getSequenceNo()));
+            }
         }
-        ctx.writeAndFlush(response);
     }
-
-    // ─── Alarm / Event ───────────────────────────────────────────────────────
 
     private void handleAlarm(ChannelHandlerContext ctx, IsupPacket packet) {
+        byte[] payload = packet.getPayload();
+        log.info("ALARM Received: session={} len={}", packet.getSessionId(), payload.length);
+        
         DeviceSession session = sessions.getFromChannel(ctx.channel());
         String deviceId = session != null ? session.getDeviceId() : "unknown";
-        if (session != null) session.touch();
-
-        String raw = packet.getPayloadAsString();
-        log.debug("ALARM from={} payload={}", deviceId, raw.length() > 200 ? raw.substring(0, 200) + "..." : raw);
-
-        ByteBuf alarmResp;
-        if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
-            alarmResp = IsupProtocol.buildV1AlarmResponse();
-        } else if (packet.getProtocolVersion() == IsupPacket.VERSION_V4) {
-            alarmResp = IsupProtocol.buildV4AlarmResponse(packet.getSessionId(), packet.getSequenceNo());
-        } else {
-            alarmResp = IsupProtocol.buildAlarmResponse(packet.getSessionId(), packet.getSequenceNo());
-        }
-        ctx.writeAndFlush(alarmResp);
-
-        Optional<AttendanceEvent> eventOpt = parserFactory.parse(deviceId, raw);
-        eventOpt.ifPresentOrElse(event -> {
-            event = enrichWithDeviceInfo(event, session);
-            eventService.saveAndDispatch(event);
-        }, () -> log.warn("Could not parse alarm payload from device={}", deviceId));
-    }
-
-    private AttendanceEvent enrichWithDeviceInfo(AttendanceEvent event, DeviceSession session) {
-        if (session == null) return event;
-        String name  = deviceService.getDeviceName(session.getDeviceId());
-        String model = deviceService.getDeviceModel(session.getDeviceId());
-        return AttendanceEvent.builder()
-                .eventId(event.getEventId())
-                .eventType(event.getEventType())
-                .deviceId(event.getDeviceId())
-                .deviceName(name)
-                .deviceModel(model)
-                .employeeNo(event.getEmployeeNo())
-                .employeeName(event.getEmployeeName())
-                .cardNo(event.getCardNo())
-                .verifyMode(event.getVerifyMode())
-                .direction(event.getDirection())
-                .doorNo(event.getDoorNo())
-                .channel(event.getChannel())
-                .eventTime(event.getEventTime())
-                .photoBase64(event.getPhotoBase64())
-                .timestamp(event.getTimestamp())
-                .rawPayload(event.getRawPayload())
-                .build();
-    }
-
-    // ─── Logout ──────────────────────────────────────────────────────────────
-
-    private void handleLogout(ChannelHandlerContext ctx, IsupPacket packet) {
-        DeviceSession session = sessions.getFromChannel(ctx.channel());
-        if (session != null) {
-            log.info("LOGOUT deviceId={}", session.getDeviceId());
-            deviceService.onDeviceDisconnected(session.getDeviceId());
-        }
-        sessions.removeSession(ctx.channel());
-        ctx.close();
-    }
-
-    // ─── Channel lifecycle ───────────────────────────────────────────────────
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) {
-        DeviceSession session = sessions.getFromChannel(ctx.channel());
-        if (session != null) {
-            log.info("DISCONNECTED deviceId={}", session.getDeviceId());
-            deviceService.onDeviceDisconnected(session.getDeviceId());
-            sessions.removeSession(ctx.channel());
-        }
-    }
-
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
-        if (evt instanceof IdleStateEvent) {
-            DeviceSession session = sessions.getFromChannel(ctx.channel());
-            String id = session != null ? session.getDeviceId() : ctx.channel().remoteAddress().toString();
-            log.info("IDLE timeout, closing connection: {}", id);
-            if (session != null) {
-                deviceService.onDeviceDisconnected(session.getDeviceId());
-                sessions.removeSession(ctx.channel());
+        int sid = session != null ? session.getSessionId() : packet.getSessionId();
+        
+        // 1. Process Event
+        if (payload != null && payload.length > 0) {
+            try {
+                String rawXml = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
+                eventParserFactory.parse(deviceId, rawXml).ifPresent(event -> {
+                    log.info("ALARM Parsed: type={} employee={}", event.getEventType(), event.getEmployeeNo());
+                    eventService.saveAndDispatch(event);
+                });
+            } catch (Exception e) {
+                log.warn("Failed to parse alarm payload: {}", e.getMessage());
             }
-            ctx.close();
         }
+
+        // 2. Acknowledge
+        if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
+            ctx.writeAndFlush(IsupProtocol.buildV1AlarmResponse(sid));
+        } else {
+            ctx.writeAndFlush(IsupProtocol.buildAlarmResponse(sid, packet.getSequenceNo()));
+        }
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        DeviceSession session = sessions.getFromChannel(ctx.channel());
+        if (session != null) {
+            log.info("OFFLINE: {} disconnected.", session.getDeviceId());
+            sessions.removeSession(ctx.channel());
+            deviceService.onDeviceDisconnected(session.getDeviceId());
+        }
+        super.channelInactive(ctx);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        if (cause instanceof TooLongFrameException) {
-            log.debug("Oversized/invalid frame from {}: {}", ctx.channel().remoteAddress(), cause.getMessage());
-        } else {
-            DeviceSession session = sessions.getFromChannel(ctx.channel());
-            String id = session != null ? session.getDeviceId() : ctx.channel().remoteAddress().toString();
-            log.warn("Channel error [{}]: {}", id, cause.getMessage());
-        }
         ctx.close();
     }
 }

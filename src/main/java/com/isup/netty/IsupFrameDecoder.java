@@ -45,31 +45,46 @@ public class IsupFrameDecoder extends ByteToMessageDecoder {
                     in.resetReaderIndex();
                     return;
                 }
+                log.info("DECODER: Found V5 frame total={}", total);
                 out.add(in.readRetainedSlice(total));
 
             } else if (first == 0x10) {
-                // ── ISUP v1 (DS-K1T343EWX style) ───────────────────────────
-                // TypeByte(1) + BodyLen(1) + Body(N)
+                // ── ISUP v1 (Standard) ─────────────────────────────────────
                 if (in.readableBytes() < 2) {
                     in.resetReaderIndex();
                     return;
                 }
                 int bodyLen = in.getByte(in.readerIndex() + 1) & 0xFF;
                 int total   = 2 + bodyLen;
-                if (total > MAX_LEN) {
-                    log.debug("v1 frame invalid length={}, skipping byte", total);
-                    in.skipBytes(1);
-                    continue;
-                }
                 if (in.readableBytes() < total) {
                     in.resetReaderIndex();
                     return;
                 }
+                log.info("DECODER: Found V1-10 frame total={}", total);
                 out.add(in.readRetainedSlice(total));
+
+            } else if (first == 0x01) {
+                // ── ISUP v1 (Modern Bypass/Headerless) ──────────────────────
+                // Sometimes EHome 5.0 sends the Login starting with 01 01 00 directly.
+                int available = in.readableBytes();
+                if (available >= 80) {
+                    log.info("DECODER: Found Headerless Login len={}", available);
+                    out.add(in.readRetainedSlice(available));
+                } else {
+                    in.resetReaderIndex();
+                    return;
+                }
+
+            } else if (first == 0x3C) {
+                // ── ISUP v5 (Naked XML Frame) ───────────────────────────────
+                // Frame starts with '<PPVSPMessage' or '<?xml'
+                int available = in.readableBytes();
+                log.info("DECODER: Found Naked XML frame len={}", available);
+                out.add(in.readRetainedSlice(available));
 
             } else {
                 // Unknown — skip one byte and try again
-                log.debug("Unknown frame byte 0x{}, skipping", String.format("%02X", first));
+                log.info("DECODER: Unknown byte 0x{}, skipping", String.format("%02X", first));
                 in.skipBytes(1);
             }
         }

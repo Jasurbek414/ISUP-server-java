@@ -28,7 +28,7 @@ public class SecurityConfig implements WebMvcConfigurer {
 
     // Simple in-memory rate limiter: ip -> (window_start_ms, count)
     private final ConcurrentHashMap<String, long[]> rateLimitMap = new ConcurrentHashMap<>();
-    private static final int    RATE_LIMIT_MAX      = 100;
+    private static final int    RATE_LIMIT_MAX      = 1000;
     private static final long   RATE_LIMIT_WINDOW_MS = 60_000L;
 
     @Override
@@ -107,10 +107,16 @@ public class SecurityConfig implements WebMvcConfigurer {
             public boolean preHandle(HttpServletRequest request,
                                      HttpServletResponse response,
                                      Object handler) throws Exception {
-                String ip = request.getRemoteAddr();
-                long now  = System.currentTimeMillis();
+                String ip = request.getHeader("X-Forwarded-For");
+                if (ip == null || ip.isEmpty()) {
+                    ip = request.getRemoteAddr();
+                } else if (ip.contains(",")) {
+                    ip = ip.split(",")[0].trim();
+                }
 
-                long[] windowData = rateLimitMap.compute(ip, (k, v) -> {
+                long now  = System.currentTimeMillis();
+                String finalIp = ip;
+                long[] windowData = rateLimitMap.compute(finalIp, (k, v) -> {
                     if (v == null || now - v[0] > RATE_LIMIT_WINDOW_MS) {
                         return new long[]{now, 1};
                     }
@@ -119,7 +125,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 });
 
                 if (windowData[1] > RATE_LIMIT_MAX) {
-                    log.warn("Rate limit exceeded for IP: {}", ip);
+                    log.warn("Rate limit exceeded for IP: {} (count: {})", finalIp, windowData[1]);
                     response.setStatus(429);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"Too Many Requests\"}");

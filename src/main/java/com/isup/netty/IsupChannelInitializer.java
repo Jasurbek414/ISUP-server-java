@@ -23,13 +23,16 @@ public class IsupChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final IsupMessageHandler messageHandler;
     private final IsupPacketEncoder  encoder;
+    private final IsupPacketDecoder  isupDecoder;
     private final IpBanManager       ipBanManager;
 
     public IsupChannelInitializer(IsupMessageHandler messageHandler,
                                   IsupPacketEncoder encoder,
+                                  IsupPacketDecoder isupDecoder,
                                   IpBanManager ipBanManager) {
         this.messageHandler = messageHandler;
         this.encoder        = encoder;
+        this.isupDecoder    = isupDecoder;
         this.ipBanManager   = ipBanManager;
     }
 
@@ -59,6 +62,7 @@ public class IsupChannelInitializer extends ChannelInitializer<SocketChannel> {
 
         p.addLast("idle",    new IdleStateHandler(READER_IDLE_SECONDS, 0, 0, TimeUnit.SECONDS));
         p.addLast("framer",  new IsupFrameDecoder());
+        p.addLast("decoder", isupDecoder);
         p.addLast("encoder", encoder);
 
         // Outbound debug: logs every write BEFORE encoding so we see raw bytes sent to device

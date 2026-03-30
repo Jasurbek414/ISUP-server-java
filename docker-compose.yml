@@ -2,7 +2,7 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: always
-    command: tunnel --config /etc/cloudflared/config.yml run
+    command: tunnel --config /etc/cloudflared/config.yml --protocol http2 run
     volumes:
       - ./cloudflared:/etc/cloudflared
     depends_on:
@@ -10,30 +10,15 @@ services:
     networks:
       - isup-network
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    restart: always
-    command: tcp isup-server:7660 --authtoken ${NGROK_TOKEN}
-    ports:
-      - "4040:4040"
-    networks:
-      - isup-network
-
-  playit:
-    image: ghcr.io/playit-cloud/playit-agent:0.17
-    network_mode: host
-    restart: always
-    environment:
-      - SECRET_KEY=7579b63dfef7939103e1cc6c30973a5b70e16e768bb946a5b2bede62a5c8bbd7
-
   frpc:
     image: snowdreamtech/frpc:latest
     restart: always
-    network_mode: host
     volumes:
       - ./frpc.toml:/etc/frp/frpc.toml
     depends_on:
       - isup-server
+    networks:
+      - isup-network
 
   postgres:
     image: postgres:16-alpine
@@ -64,6 +49,8 @@ services:
     ports:
       - "${ISUP_TCP_PORT:-7660}:7660"
       - "${ISUP_TCP_PORT:-7660}:7660/udp"
+      - "${ISUP_ALARM_PORT:-7661}:7661"
+      - "${ISUP_ALARM_PORT:-7661}:7661/udp"
       - "${SADP_UDP_PORT:-37020}:37020/udp"
       - "${API_PORT:-8090}:8090"
     environment:
@@ -79,6 +66,7 @@ services:
       ALERT_CHAT_ID: ${ALERT_CHAT_ID:-}
       EVENT_RETENTION_DAYS: ${EVENT_RETENTION_DAYS:-90}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      ISUP_SERVER_IP: 192.168.1.35
     depends_on:
       postgres:
         condition: service_healthy
