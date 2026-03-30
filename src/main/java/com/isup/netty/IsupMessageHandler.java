@@ -123,35 +123,25 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         if (ver == IsupPacket.VERSION_V5) {
             // EHome 5.0 — STX=0x20 XML success frame
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
-        } else if (ver == IsupPacket.VERSION_V4) {
-            // EHome 4.0 — STX=0x10, XML REG_RESULT with MD5 signature
-            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
-            // Time sync helps V4 terminals stabilize
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         } else {
-            // V1 binary — STX=0x10
-            // Try type=0x01 (Register ACK) with computed HMAC first (most common for V1 devices)
-            // Frame: [10][28][01][00][interval:2LE][SID:4LE][HMAC:32]
-            // Try all HMAC variants — device accepts whichever matches its formula
-            // Primary: V1 = HMAC-SHA256(MD5(password), nonce)
-            // Fallback: zeros (no-auth mode)
-            byte[] hmac = new byte[32];
-            try {
-                if (password != null && !password.isEmpty() && nonce != null && nonce.length > 0) {
-                    hmac = com.isup.protocol.HmacAuthenticator.computeV1(nonce, password);
-                }
-            } catch (Exception ignored) {}
-            // DEBUG: Also try zeros to check if device accepts no-auth
-            // hmac = new byte[32]; // uncomment to test zero HMAC
-            io.netty.buffer.ByteBuf ack = io.netty.buffer.Unpooled.buffer(42);
-            ack.writeByte(0x10);
-            ack.writeByte(40);
-            ack.writeByte(0x01);           // Type 0x01: Register ACK (mirrors login type)
-            ack.writeByte(0x00);           // Status 0x00: Success
-            ack.writeShortLE(60);          // Interval 60s
-            ack.writeIntLE(sid);
-            ack.writeBytes(hmac);
-            ctx.write(ack);
+            // V1 / V4 binary — STX=0x10
+            // SHOTGUN: Send all variants for total compatibility
+            
+            // 1. Core Binary Result (Type 0x02) - Standard for V4
+            io.netty.buffer.ByteBuf b1 = io.netty.buffer.Unpooled.buffer(10);
+            b1.writeByte(0x10); b1.writeByte(8); b1.writeByte(0x02); // Type 0x02 (Result)
+            b1.writeByte(0x00); b1.writeShortLE(60); b1.writeIntLE(sid);
+            ctx.write(b1);
+            
+            // 2. Binary TimeSync (Type 0x09) - V4 terminals often require this to stay Online
+            io.netty.buffer.ByteBuf b2 = io.netty.buffer.Unpooled.buffer(14);
+            b2.writeByte(0x10); b2.writeByte(12); b2.writeByte(0x09); // Type 0x09 (TimeSync)
+            long now = System.currentTimeMillis() / 1000;
+            b2.writeIntLE(sid); b2.writeIntLE((int)now);
+            ctx.write(b2);
+
+            // 3. XML REG_RESULT (Type 0x54) - Some V4 terminals wait for this (EHome 5.0 terminals on V1 wrapper)
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
         }
 
         ctx.flush();

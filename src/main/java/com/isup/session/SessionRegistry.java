@@ -75,8 +75,9 @@ public class SessionRegistry {
     private int generateUniqueSessionId() {
         int id;
         do {
-            // Use a smaller positive range (6 digits) to avoid sign/overflow issues in strict devices
-            id = ThreadLocalRandom.current().nextInt(100000, 999999);
+            // Classical V4.0/V1.0 terminals often have tiny buffers. 
+            // Restricting SID to 4 digits (1000-9999) for maximum safety.
+            id = 1000 + ThreadLocalRandom.current().nextInt(9000);
         } while (bySessionId.containsKey(id));
         return id;
     }
