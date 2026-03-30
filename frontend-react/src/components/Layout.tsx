@@ -41,6 +41,7 @@ export default function Layout() {
         })
       },
     })
+    console.log("%c ISUP UI: V1.1.5-STABLE %c", "color:white; background:indigo; font-weight:bold", "");
     client.activate()
     return () => { client.deactivate() }
   }, [token, updateStatus])
@@ -74,7 +75,7 @@ export default function Layout() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-white leading-none">ISUP Server</span>
-            <span className="text-[9px] text-white/30 tracking-widest mt-0.5">V1.1.4-STABLE</span>
+            <span className="text-[9px] text-white/30 tracking-widest mt-0.5">V1.1.5-STABLE</span>
           </div>
         </div>
 
