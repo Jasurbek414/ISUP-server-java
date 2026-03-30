@@ -22,8 +22,9 @@ public class IsapiClient {
     private final String baseUrl;
     protected final ObjectMapper mapper;
 
-    public IsapiClient(String deviceIp, String username, String password) {
-        this.baseUrl = "http://" + deviceIp;
+    public IsapiClient(String deviceIp, int port, boolean useHttps, String username, String password) {
+        String proto = useHttps ? "https://" : "http://";
+        this.baseUrl = proto + deviceIp + (port == 80 && !useHttps ? "" : (port == 443 && useHttps ? "" : ":" + port));
         this.mapper  = new ObjectMapper();
         this.http = new OkHttpClient.Builder()
                 .authenticator(new IsapiAuth(username, password))
@@ -32,6 +33,10 @@ public class IsapiClient {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .build();
+    }
+
+    public IsapiClient(String deviceIp, String username, String password) {
+        this(deviceIp, 80, false, username, password);
     }
 
     /** GET request, returns response body as String. */

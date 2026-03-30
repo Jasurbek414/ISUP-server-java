@@ -157,7 +157,9 @@ function InfoTab({ deviceId, device }: { deviceId: string; device: Record<string
     deviceIp: String(device.deviceIp ?? ''),
     deviceUsername: String(device.deviceUsername ?? ''),
     devicePassword: '',
+    password: '', // ISUP Key
     devicePort: String(device.devicePort ?? '80'),
+    useHttps: !!device.useHttps,
     notes: String(device.notes ?? ''),
   })
 
@@ -191,19 +193,32 @@ function InfoTab({ deviceId, device }: { deviceId: string; device: Record<string
         </div>
         {editOpen ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(['name','location','deviceIp','deviceUsername','devicePassword','devicePort','notes'] as const).map(k => (
+            {(['name','location','deviceIp','deviceUsername','devicePassword','password','devicePort'] as const).map(k => (
               <div key={k}>
-                <label className="block text-white/50 text-xs mb-1 capitalize">{k}</label>
+                <label className="block text-white/50 text-[10px] mb-1 uppercase tracking-wider">{
+                  k === 'password' ? 'ISUP Kaliti' : 
+                  k === 'devicePassword' ? 'ISAPI Paroli' : 
+                  k === 'deviceIp' ? 'IP manzil' : k
+                }</label>
                 <input
                   value={form[k]}
                   onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
-                  type={k === 'devicePassword' ? 'password' : 'text'}
-                  placeholder={k === 'devicePassword' ? '(o\'zgartirmaslik uchun bo\'sh)' : ''}
+                  type={k.toLowerCase().includes('password') || k === 'password' ? 'password' : 'text'}
+                  placeholder={k.toLowerCase().includes('password') || k === 'password' ? '(o\'zgartirmaslik uchun bo\'sh)' : ''}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2
                     text-white text-sm focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
             ))}
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2 mt-4">
+              <input 
+                type="checkbox" 
+                checked={form.useHttps}
+                onChange={e => setForm(f => ({ ...f, useHttps: e.target.checked }))}
+                className="w-4 h-4 accent-indigo-500"
+              />
+              <span className="text-white/70 text-sm">HTTPS / SSL Ishlatish</span>
+            </div>
             <div className="md:col-span-2 flex gap-2 pt-2">
               <button onClick={() => editMut.mutate()} disabled={editMut.isPending}
                 className="px-4 py-2 rounded-xl text-sm bg-indigo-500/20 border border-indigo-500/30
@@ -218,7 +233,8 @@ function InfoTab({ deviceId, device }: { deviceId: string; device: Record<string
             <Row label="Nom" value={String(device.name ?? '')} />
             <Row label="Joylashuv" value={String(device.location ?? '')} />
             <Row label="IP manzil" value={String(device.deviceIp || device.ipAddress || '')} />
-            <Row label="Port" value={String(device.devicePort ?? '')} />
+            <Row label="Port" value={String(device.devicePort ?? '80')} />
+            <Row label="SSL" value={device.useHttps ? '✅ Ha' : '❌ Yo\'q'} />
             <Row label="Tur" value={String(device.deviceType ?? '')} />
           </div>
         )}

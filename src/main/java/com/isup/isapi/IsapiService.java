@@ -143,7 +143,9 @@ public class IsapiService {
         String usr = device.getDeviceUsername() != null ? device.getDeviceUsername() : "admin";
         String pwd = device.getDevicePassword() != null ? device.getDevicePassword() : "";
 
-        IsapiClient client = new IsapiClient(ip, usr, pwd);
+        int    port = device.getDevicePort() != null ? device.getDevicePort() : 80;
+        boolean ssl = device.getUseHttps()   != null && device.getUseHttps();
+        IsapiClient client = new IsapiClient(ip, port, ssl, usr, pwd);
         StreamModule sm    = new StreamModule(client, ip, usr, pwd);
 
         return StreamInfo.builder()
@@ -265,13 +267,16 @@ public class IsapiService {
     }
 
     private IsapiClient clientFor(Device device) {
-        String ip  = device.getDeviceIp();
-        String usr = device.getDeviceUsername() != null ? device.getDeviceUsername() : "admin";
-        String pwd = device.getDevicePassword() != null ? device.getDevicePassword() : "";
+        String  ip  = device.getDeviceIp();
+        String  usr = device.getDeviceUsername() != null ? device.getDeviceUsername() : "admin";
+        String  pwd = device.getDevicePassword() != null ? device.getDevicePassword() : "";
+        int     port = device.getDevicePort() != null ? device.getDevicePort() : 80;
+        boolean ssl  = device.getUseHttps() != null && device.getUseHttps();
+        
         if (ip == null || ip.isBlank()) {
             throw new IsapiException("Device has no IP address: " + device.getDeviceId(), 0);
         }
-        return new IsapiClient(ip, usr, pwd);
+        return new IsapiClient(ip, port, ssl, usr, pwd);
     }
 
     private Device findDevice(String deviceId) {

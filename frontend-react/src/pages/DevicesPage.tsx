@@ -18,15 +18,23 @@ interface Device {
   model?: string
   deviceType?: string
   capabilities?: string
+  useHttps?: boolean
+  devicePort?: number
+  project?: { id: number; name: string }
 }
 
 interface DeviceForm {
   deviceId: string
   name: string
   deviceIp: string
+  devicePort: number
+  useHttps: boolean
   deviceUsername: string
   devicePassword: string
   password: string
+  projectId: string
+  location: string
+  deviceType: string
 }
 
 export default function DevicesPage() {
@@ -39,9 +47,21 @@ export default function DevicesPage() {
     queryFn: () => api.get('/devices').then((r) => r.data),
     refetchInterval: 10_000,
   })
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.get('/projects').then((r) => r.data),
+  })
   const devices: Device[] = Array.isArray(raw) ? raw : []
+  const projects: any[] = Array.isArray(projectsData) ? projectsData : []
 
-  const { register, handleSubmit, reset } = useForm<DeviceForm>()
+  const { register, handleSubmit, reset } = useForm<DeviceForm>({
+    defaultValues: {
+      devicePort: 80,
+      useHttps: false,
+      deviceUsername: 'admin',
+      deviceType: 'face_terminal'
+    }
+  })
 
   const addMut = useMutation({
     mutationFn: (d: DeviceForm) => api.post('/devices', d),
@@ -80,48 +100,78 @@ export default function DevicesPage() {
       }
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Qurilma qo'shish">
-        <form onSubmit={handleSubmit((d) => addMut.mutate(d))} className="space-y-4">
-          {([['deviceId','Device ID','admin'],['name','Nom','1-qavat kirish'],['deviceIp','IP manzil','192.168.1.100'],['deviceUsername','Login','admin']] as [keyof DeviceForm, string, string][]).map(([k,l,p])=>(
-            <div key={k}>
-              <label className="block text-white/60 text-sm mb-2">{l}</label>
-              <input {...register(k)} placeholder={p} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+        <form onSubmit={handleSubmit((d) => addMut.mutate(d))} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Device ID (ISUP ID)</label>
+              <input {...register('deviceId')} placeholder="admin" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
             </div>
-          ))}
-          <div>
-            <label className="block text-white/60 text-sm mb-2">Face ID / ISAPI Paroli</label>
-            <input 
-              {...register('devicePassword')} 
-              type="password" 
-              autoComplete="current-password"
-              placeholder="admin12345" 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"
-            />
-            <p className="text-[10px] text-white/30 mt-1">Qurilma sozlamalariga kirish (web-interface) paroli</p>
-          </div>
-          <div>
-            <label className="block text-white/60 text-sm mb-2">ISUP Kaliti (Login key)</label>
-            <input 
-              {...register('password')} 
-              type="password" 
-              autoComplete="new-password"
-              placeholder="Key123" 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"
-            />
-            <p className="text-[10px] text-white/30 mt-1">Platform Access / ISUP / Verification Code</p>
-          </div>
-          
-          <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3 text-[11px] text-indigo-200/60 leading-relaxed">
-            <p className="font-bold mb-1 text-indigo-300">💡 Qisqa yordam (v1.1.3):</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li><b>Device ID</b>: Qurilma uchun noyob nom</li>
-              <li><b>Admin Paroli</b>: Qurilma web-interfeysi paroli</li>
-              <li><b>ISUP Kaliti</b>: Qurilma tarmoq sozlamasidagi maxsus kod</li>
-            </ul>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Nom</label>
+              <input {...register('name')} placeholder="1-qavat" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={()=>setAddOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5">Bekor</button>
-            <button type="submit" disabled={addMut.isPending} className="flex-1 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 disabled:opacity-50">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">IP manzil (ISAPI)</label>
+              <input {...register('deviceIp')} placeholder="192.168.1.100" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Port / HTTPS</label>
+              <div className="flex gap-2">
+                <input {...register('devicePort')} type="number" className="w-2/3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+                <label className="w-1/3 flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 rounded-xl px-2 justify-center">
+                  <input {...register('useHttps')} type="checkbox" className="w-4 h-4 rounded border-white/20 bg-white/10 checked:bg-indigo-500"/>
+                  <span className="text-[10px] text-white/60">SSL</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Login</label>
+              <input {...register('deviceUsername')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Loyiha</label>
+              <select {...register('projectId')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                <option value="">Loyiha tanlang</option>
+                {projects.map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Face ID / ISAPI Paroli</label>
+              <input {...register('devicePassword')} type="password" placeholder="admin123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">ISUP Kaliti (Login key)</label>
+              <input {...register('password')} type="password" placeholder="Key123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Joylashuv</label>
+              <input {...register('location')} placeholder="B bino, 2-qavat" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Turi</label>
+              <select {...register('deviceType')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                <option value="face_terminal" className="bg-slate-900">Face Terminal</option>
+                <option value="camera" className="bg-slate-900">Kamera</option>
+                <option value="nvr" className="bg-slate-900">NVR / DVR</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-[#0a0a0c] py-2">
+            <button type="button" onClick={()=>setAddOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all">Bekor</button>
+            <button type="submit" disabled={addMut.isPending} className="flex-1 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 disabled:opacity-50 hover:bg-indigo-500/30 transition-all font-medium">
               {addMut.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
             </button>
           </div>
@@ -163,6 +213,11 @@ function DeviceCard({ device }: { device: Device }) {
         </span>
       </div>
       {device.model && <p className="text-white/50 text-sm mb-1">{device.model}</p>}
+      {device.project && (
+        <p className="text-indigo-400/60 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1">
+          🏢 {device.project.name}
+        </p>
+      )}
       {(device.deviceIp||device.ipAddress) && <p className="text-white/40 text-xs mb-1">{device.deviceIp||device.ipAddress}</p>}
       {device.location && <p className="text-white/30 text-xs mb-3">{device.location}</p>}
       {caps.length > 0 && (

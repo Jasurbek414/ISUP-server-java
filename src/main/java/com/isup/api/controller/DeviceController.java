@@ -72,7 +72,9 @@ public class DeviceController {
             (String) body.get("deviceUsername"),
             (String) body.get("deviceIp"),
             (String) body.get("deviceType"),
-            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null
+            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null,
+            body.containsKey("devicePort") ? Integer.valueOf(body.get("devicePort").toString()) : null,
+            body.containsKey("useHttps") ? (Boolean) body.get("useHttps") : null
         );
         return ResponseEntity.ok(created);
     }
@@ -88,7 +90,9 @@ public class DeviceController {
             (String) body.get("devicePassword"),
             (String) body.get("deviceUsername"),
             (String) body.get("deviceIp"),
-            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null
+            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null,
+            body.containsKey("devicePort") ? Integer.valueOf(body.get("devicePort").toString()) : null,
+            body.containsKey("useHttps") ? (Boolean) body.get("useHttps") : null
         );
     }
 

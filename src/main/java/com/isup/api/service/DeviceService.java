@@ -133,8 +133,8 @@ public class DeviceService {
     @Transactional
     public Device create(String deviceId, String name, String location, String model,
                          String password, String devicePassword, String deviceUsername, 
-                         String ipAddress, String deviceType, Long projectId) {
-        Project project = projectId != null ? projectRepo.findById(projectId).orElse(null) : null;
+                         String ipAddress, String deviceType, Long projectId,
+                         Integer devicePort, Boolean useHttps) {
         Device d = Device.builder()
                 .deviceId(deviceId)
                 .name(name)
@@ -146,28 +146,37 @@ public class DeviceService {
                 .deviceIp(ipAddress)
                 .ipAddress(ipAddress)
                 .deviceType(deviceType != null ? deviceType : "face_terminal")
-                .project(project)
+                .devicePort(devicePort != null ? devicePort : 80)
+                .useHttps(useHttps != null ? useHttps : false)
                 .status("offline")
                 .build();
+
+        if (projectId != null) {
+            projectRepo.findById(projectId).ifPresent(d::setProject);
+        }
+
         return deviceRepo.save(d);
     }
 
     @Transactional
-    public Device update(Long id, String name, String location, String model, 
-                         String password, String devicePassword, String deviceUsername, 
-                         String deviceIp, Long projectId) {
-        Device d = findById(id);
-        if (name           != null) d.setName(name);
-        if (location       != null) d.setLocation(location);
-        if (model          != null) d.setModel(model);
-        if (password       != null) d.setPasswordHash(password);
+    public Device update(Long id, String name, String location, String model,
+                         String password, String devicePassword, String deviceUsername, String ipAddress, 
+                         Long projectId, Integer devicePort, Boolean useHttps) {
+        Device d = deviceRepo.findById(id).orElseThrow(() -> new RuntimeException("Device not found"));
+        if (name != null) d.setName(name);
+        if (location != null) d.setLocation(location);
+        if (model != null) d.setModel(model);
+        if (password != null) d.setPasswordHash(password);
         if (devicePassword != null) d.setDevicePassword(devicePassword);
         if (deviceUsername != null) d.setDeviceUsername(deviceUsername);
-        if (deviceIp       != null) {
-            d.setDeviceIp(deviceIp);
-            d.setIpAddress(deviceIp);
+        if (ipAddress != null) {
+            d.setDeviceIp(ipAddress);
+            d.setIpAddress(ipAddress);
         }
-        if (projectId      != null) {
+        if (devicePort != null) d.setDevicePort(devicePort);
+        if (useHttps != null) d.setUseHttps(useHttps);
+        
+        if (projectId != null) {
             projectRepo.findById(projectId).ifPresent(d::setProject);
         }
         return deviceRepo.save(d);
