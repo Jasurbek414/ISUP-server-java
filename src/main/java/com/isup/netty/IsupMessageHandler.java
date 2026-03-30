@@ -116,7 +116,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             // Sending ONLY the XML success (Type 0x54) as it's the standard for 5.0.
             // Note: Two responses (MiniSuccess + XML) can cause session reset.
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId));
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
+            // ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         }
         
         ctx.flush();

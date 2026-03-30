@@ -39,6 +39,8 @@ interface DeviceForm {
 
 export default function DevicesPage() {
   const [addOpen, setAddOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const qc = useQueryClient()
 
@@ -69,6 +71,32 @@ export default function DevicesPage() {
     onError: () => toast('Xatolik', 'error'),
   })
 
+  const editMut = useMutation({
+    mutationFn: (data: { id: number; form: DeviceForm }) => api.put(`/devices/${data.id}`, data.form),
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['devices'] }); 
+      setEditOpen(false); 
+      reset(); 
+      toast("Ma'lumotlar yangilandi", 'success') 
+    },
+    onError: () => toast('Yangilashda xatolik', 'error'),
+  })
+
+  const handleEdit = (device: Device) => {
+    setSelectedDevice(device)
+    reset({
+      deviceId: device.deviceId,
+      name: device.name || '',
+      location: device.location || '',
+      deviceIp: device.deviceIp || '',
+      devicePort: device.devicePort || 80,
+      useHttps: device.useHttps || false,
+      deviceType: device.deviceType || 'face_terminal',
+      projectId: device.project?.id.toString() || '',
+    })
+    setEditOpen(true)
+  }
+
   const filtered = devices.filter((d) => {
     if (filterStatus === 'online' && d.status !== 'online') return false
     if (filterStatus === 'offline' && d.status === 'online') return false
@@ -96,7 +124,7 @@ export default function DevicesPage() {
         ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{Array.from({length:6}).map((_,i)=><CardSkeleton key={i}/>)}</div>
         : filtered.length === 0
           ? <div className="text-center py-16 text-white/30"><div className="text-4xl mb-4">📡</div><p>Qurilmalar topilmadi</p></div>
-          : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{filtered.map(d=><DeviceCard key={d.id} device={d}/>)}</div>
+          : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{filtered.map(d=><DeviceCard key={d.id} device={d} onEdit={() => handleEdit(d)} />)}</div>
       }
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Qurilma qo'shish">
@@ -130,15 +158,15 @@ export default function DevicesPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-white/60 text-xs font-medium">Login</label>
-                <input 
-                  {...register('deviceUsername')} 
-                  autoComplete="username"
-                  placeholder="admin" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label className="block text-white/60 text-xs font-medium">Login</label>
+              <input 
+                {...register('deviceUsername')} 
+                autoComplete="username"
+                placeholder="admin" 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+              />
+            </div>
             <div>
               <label className="block text-white/60 text-xs mb-1.5">Loyiha</label>
               <select {...register('projectId')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
@@ -149,26 +177,26 @@ export default function DevicesPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-white/60 text-xs font-medium">Face ID / ISAPI Paroli</label>
-                <input 
-                  {...register('devicePassword')} 
-                  type="password" 
-                  autoComplete="new-password"
-                  placeholder="admin123" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-white/60 text-xs font-medium">ISUP Kaliti (Login key)</label>
-                <input 
-                  {...register('password')} 
-                  type="password" 
-                  autoComplete="new-password"
-                  placeholder="Key123" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label className="block text-white/60 text-xs font-medium">Face ID / ISAPI Paroli</label>
+              <input 
+                {...register('devicePassword')} 
+                type="password" 
+                autoComplete="new-password"
+                placeholder="admin123" 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-white/60 text-xs font-medium">ISUP Kaliti (Login key)</label>
+              <input 
+                {...register('password')} 
+                type="password" 
+                autoComplete="new-password"
+                placeholder="Key123" 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -204,11 +232,63 @@ export default function DevicesPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Modal */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Qurilmani tahrirlash">
+        <form onSubmit={handleSubmit((d) => selectedDevice && editMut.mutate({ id: selectedDevice.id, form: d }))} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Device ID (ISUP ID)</label>
+              <input {...register('deviceId')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Nom</label>
+              <input {...register('name')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">IP manzil (ISAPI)</label>
+              <input {...register('deviceIp')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Port / HTTPS</label>
+              <div className="flex gap-2">
+                <input {...register('devicePort')} type="number" className="w-2/3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
+                <label className="w-1/3 flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 rounded-xl px-2 justify-center">
+                  <input {...register('useHttps')} type="checkbox" className="w-4 h-4 rounded border-white/20 bg-white/10 checked:bg-indigo-500"/>
+                  <span className="text-[10px] text-white/60">SSL</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-white/60 text-xs font-medium">Login</label>
+              <input {...register('deviceUsername')} autoComplete="username" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" />
+            </div>
+            <div>
+              <label className="block text-white/60 text-xs mb-1.5">Loyiha</label>
+              <select {...register('projectId')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                <option value="">Loyiha tanlang</option>
+                {projects.map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-8">
+            <button type="button" onClick={() => setEditOpen(false)} className="flex-1 py-3 rounded-xl bg-slate-700 border border-white/20 text-white font-bold hover:bg-slate-600 transition-all">Bekor qilish</button>
+            <button type="submit" disabled={editMut.isPending} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 border-2 border-amber-300/50 text-white font-black text-lg active:scale-95 transition-all">SAQLASH</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }
 
-function DeviceCard({ device }: { device: Device }) {
+function DeviceCard({ device, onEdit }: { device: Device; onEdit: () => void }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [loading, setLoading] = useState(false)
@@ -248,6 +328,15 @@ function DeviceCard({ device }: { device: Device }) {
           <span className="text-white font-medium">{device.name || device.deviceId}</span>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEdit() }}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase font-bold tracking-tighter text-amber-500/60 hover:text-amber-400 hover:bg-amber-500/10 transition-all border border-amber-500/0 hover:border-amber-500/20"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Tahrirlash
+          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
             className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase font-bold tracking-tighter text-rose-500/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-rose-500/0 hover:border-rose-500/20"
