@@ -68,6 +68,9 @@ public class DeviceController {
             (String) body.get("location"),
             (String) body.get("model"),
             (String) body.get("password"),
+            (String) body.get("devicePassword"),
+            (String) body.get("deviceUsername"),
+            (String) body.get("deviceIp"),
             (String) body.get("deviceType"),
             body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null
         );
@@ -82,6 +85,9 @@ public class DeviceController {
             (String) body.get("location"),
             (String) body.get("model"),
             (String) body.get("password"),
+            (String) body.get("devicePassword"),
+            (String) body.get("deviceUsername"),
+            (String) body.get("deviceIp"),
             body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null
         );
     }

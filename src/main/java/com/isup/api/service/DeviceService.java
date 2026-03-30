@@ -132,7 +132,8 @@ public class DeviceService {
 
     @Transactional
     public Device create(String deviceId, String name, String location, String model,
-                         String password, String deviceType, Long projectId) {
+                         String password, String devicePassword, String deviceUsername, 
+                         String ipAddress, String deviceType, Long projectId) {
         Project project = projectId != null ? projectRepo.findById(projectId).orElse(null) : null;
         Device d = Device.builder()
                 .deviceId(deviceId)
@@ -140,6 +141,10 @@ public class DeviceService {
                 .location(location)
                 .model(model)
                 .passwordHash(password)
+                .devicePassword(devicePassword)
+                .deviceUsername(deviceUsername != null ? deviceUsername : "admin")
+                .deviceIp(ipAddress)
+                .ipAddress(ipAddress)
                 .deviceType(deviceType != null ? deviceType : "face_terminal")
                 .project(project)
                 .status("offline")
@@ -148,13 +153,21 @@ public class DeviceService {
     }
 
     @Transactional
-    public Device update(Long id, String name, String location, String model, String password, Long projectId) {
+    public Device update(Long id, String name, String location, String model, 
+                         String password, String devicePassword, String deviceUsername, 
+                         String deviceIp, Long projectId) {
         Device d = findById(id);
-        if (name       != null) d.setName(name);
-        if (location   != null) d.setLocation(location);
-        if (model      != null) d.setModel(model);
-        if (password   != null) d.setPasswordHash(password);
-        if (projectId  != null) {
+        if (name           != null) d.setName(name);
+        if (location       != null) d.setLocation(location);
+        if (model          != null) d.setModel(model);
+        if (password       != null) d.setPasswordHash(password);
+        if (devicePassword != null) d.setDevicePassword(devicePassword);
+        if (deviceUsername != null) d.setDeviceUsername(deviceUsername);
+        if (deviceIp       != null) {
+            d.setDeviceIp(deviceIp);
+            d.setIpAddress(deviceIp);
+        }
+        if (projectId      != null) {
             projectRepo.findById(projectId).ifPresent(d::setProject);
         }
         return deviceRepo.save(d);

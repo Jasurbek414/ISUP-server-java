@@ -26,6 +26,7 @@ interface DeviceForm {
   deviceIp: string
   deviceUsername: string
   devicePassword: string
+  password: string
 }
 
 export default function DevicesPage() {
@@ -87,8 +88,12 @@ export default function DevicesPage() {
             </div>
           ))}
           <div>
-            <label className="block text-white/60 text-sm mb-2">Parol</label>
+            <label className="block text-white/60 text-sm mb-2">Face ID / ISAPI Paroli</label>
             <input {...register('devicePassword')} type="password" placeholder="admin12345" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+          </div>
+          <div>
+            <label className="block text-white/60 text-sm mb-2">ISUP Kaliti (Login key)</label>
+            <input {...register('password')} type="password" placeholder="Key123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={()=>setAddOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5">Bekor</button>
