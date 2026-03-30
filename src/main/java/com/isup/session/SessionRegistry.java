@@ -75,7 +75,8 @@ public class SessionRegistry {
     private int generateUniqueSessionId() {
         int id;
         do {
-            id = ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE);
+            // Use a smaller positive range (6 digits) to avoid sign/overflow issues in strict devices
+            id = ThreadLocalRandom.current().nextInt(100000, 999999);
         } while (bySessionId.containsKey(id));
         return id;
     }

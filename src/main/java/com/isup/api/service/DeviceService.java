@@ -66,7 +66,7 @@ public class DeviceService {
     }
 
     @Transactional
-    public void onDeviceConnected(String deviceId, String ip) {
+    public boolean onDeviceConnected(String deviceId, String ip) {
         Optional<Device> existing = deviceRepo.findByDeviceId(deviceId);
         if (existing.isPresent()) {
             String currentIp = existing.get().getDeviceIp();
@@ -78,6 +78,10 @@ public class DeviceService {
             // Ensure deviceIp is also updated for IsapiService calls
             existing.get().setDeviceIp(ip);
             deviceRepo.save(existing.get());
+
+            // Async capability detection via ISAPI
+            capabilityDetector.detectAsync(deviceId, ip);
+            return true;
         } else if (allowUnknownDevices) {
             // Auto-register unknown device
             Device d = Device.builder()
@@ -91,9 +95,12 @@ public class DeviceService {
             // Attach to default project if exists
             projectRepo.findAll().stream().findFirst().ifPresent(d::setProject);
             deviceRepo.save(d);
+
+            // Async capability detection via ISAPI
+            capabilityDetector.detectAsync(deviceId, ip);
+            return true;
         }
-        // Async capability detection via ISAPI
-        capabilityDetector.detectAsync(deviceId, ip);
+        return false;
     }
 
     @Transactional

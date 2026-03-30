@@ -108,14 +108,15 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={})", deviceId, sid, ver);
         
         if (ver == IsupPacket.VERSION_V5) {
-            // Standard EHome 5.0 Success (Type 0x54 in V5 Frame)
+            // Standard EHome 5.0 XML Success (V5 Frame)
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId));
             ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         } else {
-            // Legacy V1 Binary Success (Type 0x02)
-            ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
-            // And V1 XML success (Type 0x54) as second attempt
+            // Modern V5 terminals often use V1 wrapper (STX=0x10) for registration.
+            // Sending ONLY the XML success (Type 0x54) as it's the standard for 5.0.
+            // Note: Two responses (MiniSuccess + XML) can cause session reset.
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId));
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         }
         
         ctx.flush();
@@ -123,10 +124,14 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         // Online Marker
         ctx.executor().schedule(() -> {
             if (ctx.channel().isActive()) {
-                log.info("V5-STABLE: Device {} is now ONLINE.", deviceId);
-                deviceService.onDeviceConnected(deviceId, ip);
+                if (deviceService.onDeviceConnected(deviceId, ip)) {
+                    log.info("V5-STABLE: Device {} is now ONLINE.", deviceId);
+                } else {
+                    log.warn("ID_MISMATCH: Device {} connected, but no matching device found in DB! " +
+                             "Check if your dashboard 'Device ID (ISUP ID)' exactly matches '{}'", deviceId, deviceId);
+                }
             }
-        }, 3, TimeUnit.SECONDS);
+        }, 1, TimeUnit.SECONDS);
 
         // Keepalive (Periodic sanity check)
         ctx.executor().scheduleAtFixedRate(() -> {
