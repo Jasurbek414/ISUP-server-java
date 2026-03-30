@@ -57,15 +57,21 @@ public class WebhookDispatcher {
     }
 
     public void dispatch(AttendanceEvent event, EventLog log_) {
-        List<Project> projects = projectRepo.findAllByIsActiveTrue();
-        for (Project project : projects) {
-            if (project.getWebhookUrl() == null || project.getWebhookUrl().isBlank()) continue;
-            if (!circuitBreaker.allowRequest(project.getId())) {
-                log.debug("Circuit open for project {}, skipping webhook", project.getId());
-                continue;
+        // If the event is already linked to a specific project (via device), only send to that project
+        if (log_.getProject() != null) {
+            Project project = log_.getProject();
+            if (project.getIsActive() && project.getWebhookUrl() != null && !project.getWebhookUrl().isBlank()) {
+                if (circuitBreaker.allowRequest(project.getId())) {
+                    sendToProject(event, log_, project);
+                } else {
+                    log.debug("Circuit open for project {}, skipping webhook", project.getId());
+                }
             }
-            sendToProject(event, log_, project);
+            return;
         }
+
+        // Fallback: if no project linked, we don't know where to send it (isolation)
+        log.debug("Event {} has no project assigned, skipping webhook dispatch", log_.getId());
     }
 
     private void sendToProject(AttendanceEvent event, EventLog eventLog, Project project) {

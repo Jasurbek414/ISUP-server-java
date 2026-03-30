@@ -18,7 +18,7 @@ public interface EventLogRepository extends JpaRepository<EventLog, Long> {
 
     List<EventLog> findTop10ByOrderByCreatedAtDesc();
 
-    @Query("SELECT e FROM EventLog e WHERE e.webhookStatus != 'delivered' AND e.webhookAttempts < :maxAttempts ORDER BY e.createdAt ASC")
+    @Query("SELECT e FROM EventLog e JOIN FETCH e.project WHERE e.webhookStatus != 'delivered' AND e.webhookAttempts < :maxAttempts ORDER BY e.createdAt ASC")
     List<EventLog> findPendingWebhooks(int maxAttempts);
 
     @Query("SELECT COUNT(e) FROM EventLog e WHERE e.eventTime >= :since")
