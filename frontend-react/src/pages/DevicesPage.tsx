@@ -183,7 +183,9 @@ export default function DevicesPage() {
 
 function DeviceCard({ device }: { device: Device }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [loading, setLoading] = useState(false)
+  const [delOpen, setDelOpen] = useState(false)
   const online = device.status === 'online'
 
   async function openDoor() {
@@ -192,6 +194,16 @@ function DeviceCard({ device }: { device: Device }) {
     catch { toast('Xatolik','error') }
     finally { setLoading(false) }
   }
+
+  const deleteMut = useMutation({
+    mutationFn: () => api.delete('/devices/' + device.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] })
+      toast('Qurilma o\'chirildi', 'success')
+      setDelOpen(false)
+    },
+    onError: () => toast('O\'chirishda xatolik', 'error')
+  })
 
   const caps: string[] = (() => {
     try {
@@ -202,16 +214,28 @@ function DeviceCard({ device }: { device: Device }) {
   })()
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:-translate-y-0.5 hover:border-white/20 transition-all duration-300">
+    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:-translate-y-0.5 hover:border-white/20 transition-all duration-300 group">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={online ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' : 'w-2 h-2 rounded-full bg-gray-500'} />
           <span className="text-white font-medium">{device.name || device.deviceId}</span>
         </div>
-        <span className={online ? 'text-xs px-2 py-0.5 rounded-full border bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'text-xs px-2 py-0.5 rounded-full border bg-gray-500/20 border-gray-500/30 text-gray-400'}>
-          {online ? 'Online' : 'Offline'}
-        </span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
+            className="p-1.5 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all focus:opacity-100 group-hover:opacity-100 opacity-0"
+            title="O'chirish"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+          <span className={online ? 'text-xs px-2 py-0.5 rounded-full border bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'text-xs px-2 py-0.5 rounded-full border bg-gray-500/20 border-gray-500/30 text-gray-400'}>
+            {online ? 'Online' : 'Offline'}
+          </span>
+        </div>
       </div>
+      
       {device.model && <p className="text-white/50 text-sm mb-1">{device.model}</p>}
       {device.project && (
         <p className="text-indigo-400/60 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -225,16 +249,38 @@ function DeviceCard({ device }: { device: Device }) {
           {caps.slice(0,4).map(c=><span key={c} className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{c}</span>)}
         </div>
       )}
+      
       <div className="flex gap-2 mt-1">
         <button onClick={()=>navigate('/devices/'+device.deviceId)} className="flex-1 py-2 rounded-xl text-sm bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-all active:scale-95">
           Batafsil
         </button>
         {online && (
-          <button onClick={openDoor} disabled={loading} className="flex-1 py-2 rounded-xl text-sm bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50 active:scale-95">
+          <button onClick={openDoor} disabled={loading} className="flex-1 py-1.5 rounded-lg text-sm bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50 active:scale-95">
             {loading ? '...' : 'Ochish'}
           </button>
         )}
       </div>
+
+      <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Qurilmani o'chirish">
+        <div className="p-4 space-y-4">
+          <p className="text-white/60 text-sm leading-relaxed">
+            Haqiqatan ham <span className="text-white font-medium">{device.name || device.deviceId}</span> qurilmasini butunlay tizimdan o'chirmoqchimisiz? 
+            Barcha sozlamalar va tarixiy ma'lumotlar yo'qoladi.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setDelOpen(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all text-sm">
+              Bekor qilish
+            </button>
+            <button 
+              onClick={() => deleteMut.mutate()} 
+              disabled={deleteMut.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 transition-all disabled:opacity-50 font-medium text-sm"
+            >
+              {deleteMut.isPending ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
