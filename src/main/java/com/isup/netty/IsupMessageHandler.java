@@ -113,11 +113,15 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             // Standard EHome 5.0 XML Success (V5 Frame)
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
         } else {
-            // Modern V5 terminals on V1 wrapper often expect BOTH for total stability
-            // 1. Binary success (Type 0x02)
+            // For V1 Wrapper (STX=0x10) - typically ISUP v4.0 or v1.0
+            // 1. ALWAYS send Binary success (Type 0x02) - core for V4 terminals
             ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
-            // 2. XML REG_RESULT (Type 0x54) with signature
-            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
+            
+            // 2. Only send XML if a password/signature is required (EHome 5.0 terminals using V1 wrapper)
+            // Sending XML to a pure V4.0 terminal often causes an error drop.
+            if (password != null && !password.isEmpty()) {
+                ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
+            }
         }
         
         ctx.flush();
