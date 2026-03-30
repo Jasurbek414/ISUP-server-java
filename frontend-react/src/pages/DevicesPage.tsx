@@ -223,12 +223,12 @@ function DeviceCard({ device }: { device: Device }) {
         <div className="flex items-center gap-2">
           <button 
             onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
-            className="p-1.5 rounded-lg text-rose-500/30 hover:text-rose-500 hover:bg-rose-500/10 transition-all opacity-100 group-hover:opacity-100"
-            title="O'chirish"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase font-bold tracking-tighter text-rose-500/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-rose-500/0 hover:border-rose-500/20"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
+            O'chirish
           </button>
           <span className={online ? 'text-xs px-2 py-0.5 rounded-full border bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'text-xs px-2 py-0.5 rounded-full border bg-gray-500/20 border-gray-500/30 text-gray-400'}>
             {online ? 'Online' : 'Offline'}

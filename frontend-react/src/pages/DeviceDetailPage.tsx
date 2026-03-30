@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Modal from '../components/Modal'
 import api from '../api/axios'
 import { toast } from '../components/Toast'
 
@@ -61,7 +62,10 @@ export default function DeviceDetailPage() {
             {device.model || device.deviceType} • {device.deviceIp || device.ipAddress || 'IP yo\'q'}
           </p>
         </div>
-        <RebootButton deviceId={deviceId!} />
+        <div className="flex items-center gap-2">
+          <RebootButton deviceId={deviceId!} />
+          <DeleteDeviceButton device={device} />
+        </div>
       </div>
 
       {/* Tabs */}
@@ -122,6 +126,47 @@ function RebootButton({ deviceId }: { deviceId: string }) {
         border border-red-500/20 text-red-400 transition-all">
       🔄 Reboot
     </button>
+  )
+}
+
+function DeleteDeviceButton({ device }: { device: any }) {
+  const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const mut = useMutation({
+    mutationFn: () => api.delete('/devices/' + device.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] })
+      toast('Qurilma o\'chirildi', 'success')
+      navigate('/devices')
+    },
+    onError: () => toast('Xatolik', 'error'),
+  })
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="px-3 py-1.5 rounded-xl text-sm bg-rose-500/10 hover:bg-rose-500/20
+          border border-rose-500/20 text-rose-400 transition-all">
+        🗑 O'chirish
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Qurilmani o'chirish">
+        <div className="p-4 space-y-4">
+          <p className="text-white/60 text-sm leading-relaxed">
+            Haqiqatan ham <span className="text-white font-medium">{device.name || device.deviceId}</span> qurilmasini butunlay tizimdan o'chirmoqchimisiz?
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setOpen(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all text-sm">
+              Bekor qilish
+            </button>
+            <button onClick={() => mut.mutate()} disabled={mut.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 transition-all disabled:opacity-50 font-medium text-sm">
+              {mut.isPending ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   )
 }
 
