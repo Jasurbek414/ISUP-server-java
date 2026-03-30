@@ -169,7 +169,7 @@ export default function DevicesPage() {
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 sticky bottom-0 bg-[#0a0a0c] py-2">
+          <div className="flex gap-4 pt-8">
             <button 
               type="button" 
               onClick={() => setAddOpen(false)} 
