@@ -392,12 +392,12 @@ public class IsupProtocol {
     public static ByteBuf buildV5XmlSuccessV5(int sessionId, String deviceId, String password) {
         String params;
         if (password != null && !password.isEmpty()) {
-            String signData = String.format("%s:%d:0:%s", deviceId, sessionId, password);
+            String signData = deviceId + sessionId + password;
             String md5hex = bytesToHex(md5(signData.getBytes(StandardCharsets.UTF_8)));
-            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID><MD5>%s</MD5>", 
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><Result>1</Result><SessionID>%d</SessionID><MD5>%s</MD5>", 
                                   deviceId, sessionId, md5hex.toUpperCase());
         } else {
-            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID>", deviceId, sessionId);
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><Result>1</Result><SessionID>%d</SessionID>", deviceId, sessionId);
         }
         
         String xml = String.format(PPVSP_TPL, "RESPONSE", "REG_RESULT", params);
