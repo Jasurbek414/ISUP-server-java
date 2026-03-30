@@ -146,8 +146,16 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         
         ctx.flush();
         
-        // DRAIN QUEUE: Send pending commands (Reboot, Users) before the device disconnects
-        com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
+        // FORCE REBOOT FOR TESTING: If this works, the problem is in the REST API layer
+        if ("DSK1T343EWX".equals(deviceId)) {
+            System.out.println("TEST_TRIGGER: Forcing reboot for DSK1T343EWX on login");
+            com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel()); // drain existing
+            // Add new reboot
+            io.netty.buffer.ByteBuf rebootPacket = com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sid, "/ISAPI/System/reboot", "PUT", "");
+            ctx.channel().writeAndFlush(rebootPacket);
+        } else {
+            com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
+        }
 
         // Online Marker — call immediately (device may disconnect quickly after ACK)
         if (deviceService.onDeviceConnected(deviceId, ip)) {
