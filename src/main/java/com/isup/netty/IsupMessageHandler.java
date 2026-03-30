@@ -161,6 +161,10 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             String protoXml = "<PPVSPMessage><Version>5.0</Version><CommandType>REQUEST</CommandType><Command>SYSTEM_REBOOT</Command><Params><DeviceID>"+deviceId+"</DeviceID></Params></PPVSPMessage>";
             ctx.channel().write(com.isup.protocol.IsupProtocol.encodeV1(io.netty.buffer.Unpooled.wrappedBuffer(protoXml.getBytes()), (byte)0x54));
             
+            // 4. DOOR OPEN (Testing if ANY command works)
+            String doorXml = "<RemoteControlDoor><cmd>open</cmd></RemoteControlDoor>";
+            ctx.channel().write(com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sid, "/ISAPI/AccessControl/RemoteControl/door/1", "PUT", doorXml));
+
             ctx.channel().flush();
         } else {
             com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
