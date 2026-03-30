@@ -40,7 +40,10 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, IsupPacket packet) throws Exception {
         MessageType type = packet.getMessageType();
-        if (type == MessageType.LOGIN_REQUEST) {
+        // LOGIN_REQUEST = V1/V5 binary login (0x01)
+        // LOGIN_REQUEST_V5 = EHome 4.0/5.0 XML REG command (0x53)
+        if (type == MessageType.LOGIN_REQUEST || type == MessageType.LOGIN_REQUEST_V5) {
+            ctx.channel().attr(LoginTimeoutHandler.LOGIN_RECEIVED).set(true);
             handleLogin(ctx, packet);
         } else if (type == MessageType.KEEPALIVE_REQUEST) {
             handleKeepalive(ctx, packet);
@@ -57,7 +60,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         if (ipBanManager.isBanned(ip)) { ctx.close(); return; }
 
         int ver = packet.getProtocolVersion();
-        if (ver == IsupPacket.VERSION_V1 || ver == IsupPacket.VERSION_V5) {
+        if (ver == IsupPacket.VERSION_V1 || ver == IsupPacket.VERSION_V4 || ver == IsupPacket.VERSION_V5) {
             IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
             
             if (login == null || "unknown".equals(login.deviceId())) { 
@@ -72,8 +75,8 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
 
             log.info("DEBUG_HANDSHAKE: Login effort from {} (Ver={}, PathLen={})", deviceId, ver, payloadLen);
 
-            // ONE-STEP check (Standard EHome 5.0 or self-authenticated V1)
-            if (payloadLen >= 80 || (ver == IsupPacket.VERSION_V5 && payloadLen > 5)) {
+            // ONE-STEP check: EHome 4.0/5.0 XML (usually >80 bytes) or V5 binary
+            if (payloadLen >= 80 || ver == IsupPacket.VERSION_V4 || ver == IsupPacket.VERSION_V5) {
                 log.info("DEBUG_HANDSHAKE: One-Step Path for {}", deviceId);
                 finalizeHandshake(ctx, deviceId, ip, nonce, ver);
                 return;
@@ -90,10 +93,16 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                 if (ver == IsupPacket.VERSION_V1) {
                     ctx.writeAndFlush(IsupProtocol.buildV1Challenge(0, serverChallenge));
                 } else {
-                    // Standard V5 challenge uses LOGIN_RESPONSE with status 0x02
-                    // Classical V4.0/V1.0 terminals often have tiny buffers. 
-                    // Restricting SID to 4 digits (1000-9999) for maximum safety.
-                    return 1000 + new java.util.Random().nextInt(9000);
+                    // Standard V5 challenge: send LOGIN_RESPONSE with status 0x01 + nonce
+                    int tempSid = 1000 + new java.util.Random().nextInt(9000);
+                    byte[] challengePayload = new byte[1 + 4 + 32];
+                    challengePayload[0] = 0x01; // status: challenge required
+                    challengePayload[1] = (byte)(tempSid);
+                    challengePayload[2] = (byte)(tempSid >> 8);
+                    challengePayload[3] = (byte)(tempSid >> 16);
+                    challengePayload[4] = (byte)(tempSid >> 24);
+                    System.arraycopy(serverChallenge, 0, challengePayload, 5, 32);
+                    ctx.writeAndFlush(IsupProtocol.encode(MessageType.LOGIN_RESPONSE, tempSid, packet.getSequenceNo(), challengePayload));
                 }
                 return;
             }
@@ -112,40 +121,56 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                  deviceId, sid, ver, (password!=null && !password.isEmpty()));
         
         if (ver == IsupPacket.VERSION_V5) {
-            // Standard EHome 5.0 XML Success (V5 Frame)
+            // EHome 5.0 — STX=0x20 XML success frame
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
-        } else {
-            // For V1 Wrapper (STX=0x10) - typically ISUP v4.0 or v1.0
-            // 1. ALWAYS send Binary success (Type 0x02) - core for V4 terminals
-            ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
-            
-            // 2. Add Binary TimeSync (Type 0x09) which V4 terminals often require to stabilize
+        } else if (ver == IsupPacket.VERSION_V4) {
+            // EHome 4.0 — STX=0x10, XML REG_RESULT with MD5 signature
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
+            // Time sync helps V4 terminals stabilize
             ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
-
-            // 3. Only send XML result if a password is set
-            if (password != null && !password.isEmpty()) {
-                ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
-            }
+        } else {
+            // V1 binary — STX=0x10
+            // Try type=0x01 (Register ACK) with computed HMAC first (most common for V1 devices)
+            // Frame: [10][28][01][00][interval:2LE][SID:4LE][HMAC:32]
+            // Try all HMAC variants — device accepts whichever matches its formula
+            // Primary: V1 = HMAC-SHA256(MD5(password), nonce)
+            // Fallback: zeros (no-auth mode)
+            byte[] hmac = new byte[32];
+            try {
+                if (password != null && !password.isEmpty() && nonce != null && nonce.length > 0) {
+                    hmac = com.isup.protocol.HmacAuthenticator.computeV1(nonce, password);
+                }
+            } catch (Exception ignored) {}
+            // DEBUG: Also try zeros to check if device accepts no-auth
+            // hmac = new byte[32]; // uncomment to test zero HMAC
+            io.netty.buffer.ByteBuf ack = io.netty.buffer.Unpooled.buffer(42);
+            ack.writeByte(0x10);
+            ack.writeByte(40);
+            ack.writeByte(0x01);           // Type 0x01: Register ACK (mirrors login type)
+            ack.writeByte(0x00);           // Status 0x00: Success
+            ack.writeShortLE(60);          // Interval 60s
+            ack.writeIntLE(sid);
+            ack.writeBytes(hmac);
+            ctx.write(ack);
         }
-        
+
         ctx.flush();
 
-        // Online Marker
-        ctx.executor().schedule(() -> {
-            if (ctx.channel().isActive()) {
-                if (deviceService.onDeviceConnected(deviceId, ip)) {
-                    log.info("V5-STABLE: Device {} is now ONLINE.", deviceId);
-                } else {
-                    log.warn("ID_MISMATCH: Device {} connected, but no matching device found in DB! " +
-                             "Check if your dashboard 'Device ID (ISUP ID)' exactly matches '{}'", deviceId, deviceId);
-                }
-            }
-        }, 1, TimeUnit.SECONDS);
+        // Online Marker — call immediately (device may disconnect quickly after ACK)
+        if (deviceService.onDeviceConnected(deviceId, ip)) {
+            log.info("ONLINE: Device {} registered (sid={}, ip={})", deviceId, sid, ip);
+        } else {
+            log.warn("ID_MISMATCH: Device {} connected but not found in DB (auto-register failed?)", deviceId);
+        }
 
-        // Keepalive (Periodic sanity check)
+        // Keepalive (Periodic sanity check) — format depends on protocol version
         ctx.executor().scheduleAtFixedRate(() -> {
             if (ctx.channel().isActive()) {
-                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveRequest(sid));
+                if (ver == IsupPacket.VERSION_V5) {
+                    ctx.writeAndFlush(IsupProtocol.encode(MessageType.KEEPALIVE_REQUEST, sid, 0, null));
+                } else {
+                    ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveRequest(sid));
+                }
             }
         }, 15, 30, TimeUnit.SECONDS);
     }
@@ -153,10 +178,12 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     private void handleKeepalive(ChannelHandlerContext ctx, IsupPacket packet) {
         DeviceSession session = sessions.getFromChannel(ctx.channel());
         if (session != null) {
-            if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
-                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
-            } else {
+            int ver = packet.getProtocolVersion();
+            if (ver == IsupPacket.VERSION_V5) {
                 ctx.writeAndFlush(IsupProtocol.buildKeepaliveResponse(session.getSessionId(), packet.getSequenceNo()));
+            } else {
+                // V1 and V4 both use STX=0x10 keepalive response
+                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
             }
         }
     }
@@ -194,9 +221,11 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         DeviceSession session = sessions.getFromChannel(ctx.channel());
         if (session != null) {
-            log.info("OFFLINE: {} disconnected.", session.getDeviceId());
+            log.debug("TCP disconnected: {} (TTL monitor will handle offline status)", session.getDeviceId());
             sessions.removeSession(ctx.channel());
-            deviceService.onDeviceDisconnected(session.getDeviceId());
+            // Do NOT call onDeviceDisconnected here — EHome 4.0 devices use one-shot
+            // heartbeat TCP (connect every ~3.5s, immediately disconnect after ACK).
+            // DeviceStatusService TTL (90s) handles offline detection instead.
         }
         super.channelInactive(ctx);
     }

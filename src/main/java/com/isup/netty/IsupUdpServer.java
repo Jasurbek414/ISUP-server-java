@@ -69,17 +69,30 @@ public class IsupUdpServer {
                          java.util.regex.Matcher mSeq = java.util.regex.Pattern.compile("<Sequence>(.*?)</Sequence>").matcher(rawStr);
                          if (mSeq.find()) seq = mSeq.group(1);
 
-                         // Check if this is a response to our challenge (Check if XML has Password with hash or similar)
-                         // For now, let's always challenge once to see the behavior
-                         boolean isStep2 = rawStr.contains("<Password>") && rawStr.length() > 800;
-                         
+                         // Echo back the RegisterServer from the device's request (FRP public IP/domain)
+                         // This ensures the device connects TCP to the correct public address
+                         String regServer = serverIp;
+                         java.util.regex.Matcher mReg = java.util.regex.Pattern.compile("<RegisterServer>(.*?)</RegisterServer>").matcher(rawStr);
+                         if (mReg.find()) regServer = mReg.group(1);
+
+                         // Extract DeviceID and password for ISUP key validation (optional logging)
+                         java.util.regex.Matcher mDev = java.util.regex.Pattern.compile("<DeviceID>(.*?)</DeviceID>").matcher(rawStr);
+                         String devId = mDev.find() ? mDev.group(1) : "unknown";
+                         log.info("UDP REGISTER: device={} ver={} server={}", devId, ver, regServer);
+
+                         // Detect register port: LocalPort from device request or default 17660
+                         String regPort = "17660";
+                         java.util.regex.Matcher mPort = java.util.regex.Pattern.compile("<LocalPort>(.*?)</LocalPort>").matcher(rawStr);
+                         if (mPort.find()) regPort = mPort.group(1);
+
                          String status = "200";
                          String msg    = "OK";
                          String params = "<Status>" + status + "</Status>\n" +
                                          "<Message>" + msg + "</Message>\n" +
                                          "<ServerID>ISUP_PLATFORM</ServerID>\n" +
-                                         "<AddressType>0</AddressType>\n" +
-                                         "<RegisterServer>" + serverIp + "</RegisterServer>\n";
+                                         "<AddressType>1</AddressType>\n" +
+                                         "<RegisterServer>" + regServer + "</RegisterServer>\n" +
+                                         "<RegisterPort>" + regPort + "</RegisterPort>\n";
 
                          String responseXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                                             "<PPVSPMessage>\n" +

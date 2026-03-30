@@ -134,6 +134,7 @@ public class IsupProtocol {
             case 0x01 -> MessageType.LOGIN_REQUEST;
             case 0x02 -> MessageType.EHOME_LOGIN;
             case 0x03 -> MessageType.LOGOUT;
+            case 0x04 -> MessageType.ALARM_EVENT;
             case 0x13 -> MessageType.KEEPALIVE_REQUEST;
             case 0x14 -> MessageType.KEEPALIVE_RESPONSE;
             case 0x53 -> MessageType.LOGIN_REQUEST_V5;
@@ -141,20 +142,28 @@ public class IsupProtocol {
             default   -> MessageType.UNKNOWN;
         };
 
+        // Detect EHome 4.0 (VERSION_V4): STX=0x10 frame where cmd=0x53 and body contains XML
+        int version = IsupPacket.VERSION_V1;
+        if (msgTypeByte == 0x53 && body.length > 5) {
+            for (int i = 1; i < Math.min(body.length, 20); i++) {
+                if (body[i] == '<') { version = IsupPacket.VERSION_V4; break; }
+            }
+        }
+
         int sessionId = 0;
         // Extract SessionID from v1 keepalive/alarm bodies if present
         if (body.length >= 5 && (msgTypeByte == 0x13 || msgTypeByte == 0x04 || msgTypeByte == 0x14)) {
             sessionId = ((body[1] & 0xFF) | ((body[2] & 0xFF) << 8) | ((body[3] & 0xFF) << 16) | ((body[4] & 0xFF) << 24));
         }
 
-        log.debug("V1 decoded: type={} bodyLen={} sid={}", msgType, body.length, sessionId);
+        log.debug("V1 decoded: type={} bodyLen={} sid={} ver={}", msgType, body.length, sessionId, version);
 
         return IsupPacket.builder()
                 .messageType(msgType)
                 .sessionId(sessionId)
                 .sequenceNo(0)
                 .payload(body)
-                .protocolVersion(IsupPacket.VERSION_V1)
+                .protocolVersion(version)
                 .build();
     }
 

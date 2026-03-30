@@ -9,7 +9,8 @@ public class IsupPacket {
     public static final byte STX    = 0x20;
     public static final byte ETX = 0x20;
     public static final int VERSION_V1 = 1;
-    public static final int VERSION_V5 = 5;
+    public static final int VERSION_V4 = 4;  // EHome 4.0: STX=0x10 + XML payload
+    public static final int VERSION_V5 = 5;  // EHome 5.0: STX=0x20 binary frame
 
     private final MessageType messageType;
     private final int sessionId;
