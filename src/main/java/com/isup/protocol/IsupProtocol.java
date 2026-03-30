@@ -401,7 +401,8 @@ public class IsupProtocol {
         }
         
         String xml = String.format(PPVSP_TPL, "RESPONSE", "REG_RESULT", params);
-        return encodeV5Xml(xml, (byte)0x54);
+        // buildV5XmlSuccessV5 is for V5 Frame (STX=0x01)
+        return encodeV5(xml, 0x54, sessionId);
     }
 
     public static ByteBuf buildV5XmlTimeSync(int sessionId, String deviceId) {
@@ -454,7 +455,7 @@ public class IsupProtocol {
     }
 
     public static ByteBuf buildV1LoginResponse(int sessionId, byte[] nonce, String password, String deviceId) {
-        return buildV5XmlSuccessFull(sessionId, deviceId);
+        return buildV5XmlSuccessFull(sessionId, deviceId, password);
     }
 
     public static ByteBuf buildV1KeepaliveV5(int sessionId) {
