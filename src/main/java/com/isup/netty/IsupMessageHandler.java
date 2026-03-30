@@ -110,13 +110,12 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         if (ver == IsupPacket.VERSION_V5) {
             // Standard EHome 5.0 XML Success (V5 Frame)
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId));
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         } else {
-            // Modern V5 terminals often use V1 wrapper (STX=0x10) for registration.
-            // Sending ONLY the XML success (Type 0x54) as it's the standard for 5.0.
-            // Note: Two responses (MiniSuccess + XML) can cause session reset.
+            // Modern V5 terminals on V1 wrapper often expect BOTH for total stability
+            // 1. Binary success (Type 0x02)
+            ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
+            // 2. XML REG_RESULT (Type 0x54)
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId));
-            // ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         }
         
         ctx.flush();
