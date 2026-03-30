@@ -60,7 +60,7 @@ public class WebhookDispatcher {
         // If the event is already linked to a specific project (via device), only send to that project
         if (log_.getProject() != null) {
             Project project = log_.getProject();
-            if (project.getIsActive() && project.getWebhookUrl() != null && !project.getWebhookUrl().isBlank()) {
+            if (project.isActive() && project.getWebhookUrl() != null && !project.getWebhookUrl().isBlank()) {
                 if (circuitBreaker.allowRequest(project.getId())) {
                     sendToProject(event, log_, project);
                 } else {
