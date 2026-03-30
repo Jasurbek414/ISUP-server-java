@@ -104,7 +104,7 @@ export default function DeviceDetailPage() {
 function RebootButton({ deviceId }: { deviceId: string }) {
   const [confirm, setConfirm] = useState(false)
   const mut = useMutation({
-    mutationFn: () => api.post(`/device-config/${deviceId}/reboot`),
+    mutationFn: () => api.post(`/device-config/${deviceId}/reboot`, {}),
     onSuccess: () => { toast('Qayta ishga tushirildi', 'success'); setConfirm(false) },
     onError: () => { toast('Xatolik yuz berdi', 'error'); setConfirm(false) },
   })
@@ -828,8 +828,12 @@ function UsersTab({ deviceId }: { deviceId: string }) {
     retry: false,
   })
 
-  const addMut = useMutation({
-    mutationFn: () => api.post(`/device-config/${deviceId}/users`, form),
+    const addMut = useMutation({
+      mutationFn: () => api.post(`/device-config/${deviceId}/users`, {
+        employeeNo: form.employeeNo,
+        name: form.name,
+        cardNo: "" // Backend expects this field
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['device-users', deviceId] })
       toast('Qo\'shildi', 'success')

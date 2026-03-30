@@ -133,5 +133,6 @@ public class DeviceConfigController {
         ));
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     record AddUserRequest(String employeeNo, String name, String cardNo) {}
 }
