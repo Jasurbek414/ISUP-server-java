@@ -69,10 +69,13 @@ export default function Layout() {
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5 border-b border-white/5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/30 border border-indigo-500/50 flex items-center justify-center text-sm">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/40 border border-amber-500/50 flex items-center justify-center text-sm shadow-lg shadow-amber-500/10">
             🔷
           </div>
-          <span className="font-semibold text-white">ISUP Server</span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-white leading-none">ISUP Server</span>
+            <span className="text-[9px] text-white/30 tracking-widest mt-0.5">V1.1.2-STABLE</span>
+          </div>
         </div>
 
         {/* Nav */}
