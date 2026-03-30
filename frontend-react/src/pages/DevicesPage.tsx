@@ -223,7 +223,7 @@ function DeviceCard({ device }: { device: Device }) {
         <div className="flex items-center gap-2">
           <button 
             onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
-            className="p-1.5 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all focus:opacity-100 group-hover:opacity-100 opacity-0"
+            className="p-1.5 rounded-lg text-rose-500/30 hover:text-rose-500 hover:bg-rose-500/10 transition-all opacity-100 group-hover:opacity-100"
             title="O'chirish"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
