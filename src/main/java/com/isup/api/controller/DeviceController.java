@@ -113,4 +113,9 @@ public class DeviceController {
         service.openDoor(deviceId, door);
         return ResponseEntity.ok(Map.of("message", "Open command sent to " + deviceId, "door", door));
     }
+
+    @GetMapping("/version")
+    public Map<String, String> getVersion() {
+        return Map.of("version", "v1.1.4-STABLE", "status", "active", "timestamp", String.valueOf(System.currentTimeMillis()));
+    }
 }
