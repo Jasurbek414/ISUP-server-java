@@ -91,7 +91,9 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                     ctx.writeAndFlush(IsupProtocol.buildV1Challenge(0, serverChallenge));
                 } else {
                     // Standard V5 challenge uses LOGIN_RESPONSE with status 0x02
-                    // But One-Step is preferred for this integration.
+                    // Classical V4.0/V1.0 terminals often have tiny buffers. 
+                    // Restricting SID to 4 digits (1000-9999) for maximum safety.
+                    return 1000 + new java.util.Random().nextInt(9000);
                 }
                 return;
             }
@@ -117,8 +119,10 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             // 1. ALWAYS send Binary success (Type 0x02) - core for V4 terminals
             ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
             
-            // 2. Only send XML if a password/signature is required (EHome 5.0 terminals using V1 wrapper)
-            // Sending XML to a pure V4.0 terminal often causes an error drop.
+            // 2. Add Binary TimeSync (Type 0x09) which V4 terminals often require to stabilize
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
+
+            // 3. Only send XML result if a password is set
             if (password != null && !password.isEmpty()) {
                 ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
             }
