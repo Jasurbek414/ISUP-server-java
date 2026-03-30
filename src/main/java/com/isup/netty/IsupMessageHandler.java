@@ -105,17 +105,19 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         final DeviceSession session = sessions.createSession(deviceId, ctx.channel(), ip);
         int sid = session.getSessionId();
 
-        log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={})", deviceId, sid, ver);
+        String password = deviceService.getDevicePassword(deviceId);
+        log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={}, auth={})", 
+                 deviceId, sid, ver, (password!=null && !password.isEmpty()));
         
         if (ver == IsupPacket.VERSION_V5) {
             // Standard EHome 5.0 XML Success (V5 Frame)
-            ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId));
+            ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
         } else {
             // Modern V5 terminals on V1 wrapper often expect BOTH for total stability
             // 1. Binary success (Type 0x02)
             ctx.write(IsupProtocol.buildV1MiniSuccess(sid));
-            // 2. XML REG_RESULT (Type 0x54)
-            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId));
+            // 2. XML REG_RESULT (Type 0x54) with signature
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
         }
         
         ctx.flush();

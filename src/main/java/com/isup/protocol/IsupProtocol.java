@@ -353,16 +353,55 @@ public class IsupProtocol {
 
     private static final String PPVSP_TPL = "<PPVSPMessage><Version>5.0</Version><CommandType>%s</CommandType><Command>%s</Command><Params>%s</Params></PPVSPMessage>";
 
-    public static ByteBuf buildV5XmlSuccessFull(int sessionId, String deviceId) {
-        String params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID>", deviceId, sessionId);
+    /**
+     * Build standard EHome 5.0 REG_RESULT XML with optional MD5 signature.
+     */
+    public static ByteBuf buildV5XmlSuccessFull(int sessionId, String deviceId, String password) {
+        String params;
+        if (password != null && !password.isEmpty()) {
+            // EHome 5.0 common signature: MD5(DeviceID + ":" + SessionID + ":" + ResultCode + ":" + Password)
+            String signData = String.format("%s:%d:0:%s", deviceId, sessionId, password);
+            String md5hex = bytesToHex(md5(signData.getBytes(StandardCharsets.UTF_8)));
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID><MD5>%s</MD5>", 
+                                  deviceId, sessionId, md5hex.toUpperCase());
+        } else {
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID>", deviceId, sessionId);
+        }
+        
         String xml = String.format(PPVSP_TPL, "RESPONSE", "REG_RESULT", params);
         return encodeV1Xml(xml, (byte)0x54);
     }
 
-    public static ByteBuf buildV5XmlSuccessV5(int sessionId, String deviceId) {
-        String params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><Result>1</Result><SessionID>%d</SessionID>", deviceId, sessionId);
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    private static byte[] md5(byte[] data) {
+        try {
+            return java.security.MessageDigest.getInstance("MD5").digest(data);
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    public static ByteBuf buildV5XmlSuccessV5(int sessionId, String deviceId, String password) {
+        String params;
+        if (password != null && !password.isEmpty()) {
+            String signData = String.format("%s:%d:0:%s", deviceId, sessionId, password);
+            String md5hex = bytesToHex(md5(signData.getBytes(StandardCharsets.UTF_8)));
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID><MD5>%s</MD5>", 
+                                  deviceId, sessionId, md5hex.toUpperCase());
+        } else {
+            params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID>", deviceId, sessionId);
+        }
+        
         String xml = String.format(PPVSP_TPL, "RESPONSE", "REG_RESULT", params);
-        return encodeV5(xml, 0x54, sessionId);
+        return encodeV5Xml(xml, (byte)0x54);
     }
 
     public static ByteBuf buildV5XmlTimeSync(int sessionId, String deviceId) {
