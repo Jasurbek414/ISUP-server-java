@@ -36,7 +36,7 @@ public class XmlV2EventParser implements EventParser {
     @Override
     public Optional<AttendanceEvent> parse(String deviceId, String rawPayload) {
         try {
-            Document doc = parse(rawPayload);
+            Document doc = parseXml(rawPayload);
 
             String eventType   = text(doc, "eventType", "Command");
             if (!"AccessControllerEvent".equalsIgnoreCase(eventType) && !"EVENT_REPORT".equalsIgnoreCase(eventType)) {
@@ -73,7 +73,7 @@ public class XmlV2EventParser implements EventParser {
         }
     }
 
-    private Document parse(String xml) throws Exception {
+    private Document parseXml(String xml) throws Exception {
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
         f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         DocumentBuilder builder = f.newDocumentBuilder();
