@@ -173,16 +173,16 @@ export default function DevicesPage() {
             <button 
               type="button" 
               onClick={() => setAddOpen(false)} 
-              className="flex-1 py-3 rounded-xl bg-slate-500/10 border border-white/10 text-white/70 hover:bg-slate-500/20 transition-all font-medium"
+              className="flex-1 py-3 rounded-xl bg-slate-700 border border-white/20 text-white hover:bg-slate-600 transition-all font-bold"
             >
               Bekor qilish
             </button>
             <button 
               type="submit" 
               disabled={addMut.isPending} 
-              className="flex-1 py-3 rounded-xl bg-indigo-600 border border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50 hover:bg-indigo-500 transition-all font-bold active:scale-95"
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 border-2 border-amber-300/50 text-white shadow-2xl shadow-amber-900/40 disabled:opacity-50 hover:from-amber-400 hover:to-orange-500 transition-all font-black text-lg active:scale-90"
             >
-              {addMut.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
+              {addMut.isPending ? 'Kutilmoqda...' : 'SAQLASH'}
             </button>
           </div>
         </form>
