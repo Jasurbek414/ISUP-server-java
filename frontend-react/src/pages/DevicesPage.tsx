@@ -144,14 +144,26 @@ export default function DevicesPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/60 text-xs mb-1.5">Face ID / ISAPI Paroli</label>
-              <input {...register('devicePassword')} type="password" placeholder="admin123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
-            </div>
-            <div>
-              <label className="block text-white/60 text-xs mb-1.5">ISUP Kaliti (Login key)</label>
-              <input {...register('password')} type="password" placeholder="Key123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
-            </div>
+              <div className="space-y-1.5">
+                <label className="block text-white/60 text-xs font-medium">Face ID / ISAPI Paroli</label>
+                <input 
+                  {...register('devicePassword')} 
+                  type="password" 
+                  autoComplete="new-password"
+                  placeholder="admin123" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-white/60 text-xs font-medium">ISUP Kaliti (Login key)</label>
+                <input 
+                  {...register('password')} 
+                  type="password" 
+                  autoComplete="new-password"
+                  placeholder="Key123" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+                />
+              </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
