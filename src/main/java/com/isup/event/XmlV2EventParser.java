@@ -38,19 +38,19 @@ public class XmlV2EventParser implements EventParser {
         try {
             Document doc = parse(rawPayload);
 
-            String eventType   = text(doc, "eventType");
-            if (!"AccessControllerEvent".equalsIgnoreCase(eventType)) {
+            String eventType   = text(doc, "eventType", "Command");
+            if (!"AccessControllerEvent".equalsIgnoreCase(eventType) && !"EVENT_REPORT".equalsIgnoreCase(eventType)) {
                 return Optional.empty();
             }
 
-            String employeeNo  = text(doc, "employeeNoString");
-            String name        = text(doc, "name");
-            String cardNo      = text(doc, "cardNo");
-            String verifyMode  = normalizeVerifyMode(text(doc, "currentVerifyMode"));
-            String direction   = mapAttendanceStatus(text(doc, "AttendanceStatus"));
-            int    doorNo      = parseInt(text(doc, "doorNo"), 1);
-            String photo       = text(doc, "picData");
-            Instant eventTime  = parseDateTime(text(doc, "dateTime"));
+            String employeeNo  = text(doc, "employeeNoString", "employeeNo");
+            String name        = text(doc, "name", "employeeName");
+            String cardNo      = text(doc, "cardNo", "cardNum");
+            String verifyMode  = normalizeVerifyMode(text(doc, "currentVerifyMode", "verifyMode"));
+            String direction   = mapAttendanceStatus(text(doc, "AttendanceStatus", "direction"));
+            int    doorNo      = parseInt(text(doc, "doorNo", "doorId"), 1);
+            String photo       = text(doc, "picData", "picDataRecord");
+            Instant eventTime  = parseDateTime(text(doc, "dateTime", "eventTime"));
 
             return Optional.of(AttendanceEvent.builder()
                     .eventId(UUID.randomUUID().toString())
@@ -80,11 +80,15 @@ public class XmlV2EventParser implements EventParser {
         return builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
     }
 
-    private String text(Document doc, String tagName) {
-        NodeList nl = doc.getElementsByTagName(tagName);
-        if (nl.getLength() == 0) return null;
-        Node node = nl.item(0);
-        return node == null ? null : node.getTextContent().trim();
+    private String text(Document doc, String... tagNames) {
+        for (String tag : tagNames) {
+            NodeList nl = doc.getElementsByTagName(tag);
+            if (nl.getLength() > 0) {
+                Node node = nl.item(0);
+                if (node != null) return node.getTextContent().trim();
+            }
+        }
+        return null;
     }
 
     private int parseInt(String value, int def) {

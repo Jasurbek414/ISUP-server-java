@@ -7,7 +7,7 @@ import lombok.Getter;
 @Builder
 public class IsupPacket {
     public static final byte STX    = 0x20;
-    public static final byte ETX = 0x0A;
+    public static final byte ETX = 0x20;
     public static final int VERSION_V1 = 1;
     public static final int VERSION_V5 = 5;
 

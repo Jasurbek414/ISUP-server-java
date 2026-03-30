@@ -11,6 +11,8 @@ public enum MessageType {
     KEEPALIVE_RESPONSE(0x0014),
     LOGIN_REQUEST_V5(0x0053),
     LOGIN_RESPONSE_V5(0x0054),
+    REVERSE_ISAPI_REQUEST(0x0021),
+    REVERSE_ISAPI_RESPONSE(0x0022),
     UNKNOWN(-1);
 
     public final int code;

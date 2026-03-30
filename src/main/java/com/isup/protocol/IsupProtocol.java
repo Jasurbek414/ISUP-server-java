@@ -360,7 +360,7 @@ public class IsupProtocol {
     }
 
     public static ByteBuf buildV5XmlSuccessV5(int sessionId, String deviceId) {
-        String params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><SessionID>%d</SessionID>", deviceId, sessionId);
+        String params = String.format("<DeviceID>%s</DeviceID><ResultCode>0</ResultCode><Result>1</Result><SessionID>%d</SessionID>", deviceId, sessionId);
         String xml = String.format(PPVSP_TPL, "RESPONSE", "REG_RESULT", params);
         return encodeV5(xml, 0x54, sessionId);
     }
@@ -389,13 +389,13 @@ public class IsupProtocol {
         byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
         int totalLen = 14 + xmlBytes.length;
         ByteBuf buf = Unpooled.buffer(totalLen);
-        buf.writeByte(0x20);            // STX
+        buf.writeByte(IsupPacket.STX);  // 0x20
         buf.writeIntLE(totalLen);       // Length
         buf.writeShortLE(type);         // MsgType
         buf.writeIntLE(sessionId);      // SessionID
         buf.writeShortLE(0);            // SeqNo
         buf.writeBytes(xmlBytes);       // Payload
-        buf.writeByte(0x20);            // ETX
+        buf.writeByte(IsupPacket.ETX);  // 0x20/0x03/0x0A (Standardized to STX)
         return buf;
     }
 
