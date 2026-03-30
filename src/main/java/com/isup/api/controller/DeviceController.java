@@ -72,8 +72,8 @@ public class DeviceController {
             (String) body.get("deviceUsername"),
             (String) body.get("deviceIp"),
             (String) body.get("deviceType"),
-            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null,
-            body.containsKey("devicePort") ? Integer.valueOf(body.get("devicePort").toString()) : null,
+            parseLong(body.get("projectId")),
+            parseInt(body.get("devicePort")),
             body.containsKey("useHttps") ? (Boolean) body.get("useHttps") : null
         );
         return ResponseEntity.ok(created);
@@ -90,10 +90,20 @@ public class DeviceController {
             (String) body.get("devicePassword"),
             (String) body.get("deviceUsername"),
             (String) body.get("deviceIp"),
-            body.containsKey("projectId") ? Long.valueOf(body.get("projectId").toString()) : null,
-            body.containsKey("devicePort") ? Integer.valueOf(body.get("devicePort").toString()) : null,
+            parseLong(body.get("projectId")),
+            parseInt(body.get("devicePort")),
             body.containsKey("useHttps") ? (Boolean) body.get("useHttps") : null
         );
+    }
+
+    private Long parseLong(Object obj) {
+        if (obj == null || obj.toString().isBlank()) return null;
+        try { return Long.valueOf(obj.toString()); } catch (Exception e) { return null; }
+    }
+
+    private Integer parseInt(Object obj) {
+        if (obj == null || obj.toString().isBlank()) return null;
+        try { return Integer.valueOf(obj.toString()); } catch (Exception e) { return null; }
     }
 
     @DeleteMapping("/{id}")

@@ -130,10 +130,15 @@ export default function DevicesPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/60 text-xs mb-1.5">Login</label>
-              <input {...register('deviceUsername')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"/>
-            </div>
+              <div className="space-y-1.5">
+                <label className="block text-white/60 text-xs font-medium">Login</label>
+                <input 
+                  {...register('deviceUsername')} 
+                  autoComplete="username"
+                  placeholder="admin" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50" 
+                />
+              </div>
             <div>
               <label className="block text-white/60 text-xs mb-1.5">Loyiha</label>
               <select {...register('projectId')} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
