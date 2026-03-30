@@ -90,11 +90,23 @@ export default function DevicesPage() {
           <div>
             <label className="block text-white/60 text-sm mb-2">Face ID / ISAPI Paroli</label>
             <input {...register('devicePassword')} type="password" placeholder="admin12345" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+            <p className="text-[10px] text-white/30 mt-1">Qurilma sozlamalariga kirish (web-interface) paroli</p>
           </div>
           <div>
             <label className="block text-white/60 text-sm mb-2">ISUP Kaliti (Login key)</label>
             <input {...register('password')} type="password" placeholder="Key123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+            <p className="text-[10px] text-white/30 mt-1">Platform Access / ISUP / Verification Code</p>
           </div>
+          
+          <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3 text-[11px] text-indigo-200/60 leading-relaxed">
+            <p className="font-bold mb-1 text-indigo-300">💡 Qisqa yordam:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li><b>Device ID</b>: Qurilma uchun noyob nom</li>
+              <li><b>Admin Paroli</b>: Qurilma web-interfeysi paroli</li>
+              <li><b>ISUP Kaliti</b>: Qurilma tarmoq sozlamasidagi maxsus kod</li>
+            </ul>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={()=>setAddOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5">Bekor</button>
             <button type="submit" disabled={addMut.isPending} className="flex-1 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 disabled:opacity-50">
