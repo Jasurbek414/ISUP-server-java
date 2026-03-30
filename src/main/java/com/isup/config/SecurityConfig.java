@@ -50,6 +50,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         registry.addInterceptor(bearerTokenInterceptor())
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/health")
+                .excludePathPatterns("/api/public/**")
                 .excludePathPatterns("/api/auth/**");
         registry.addInterceptor(rateLimitInterceptor())
                 .addPathPatterns("/**");
