@@ -23,6 +23,9 @@ public class IsapiService {
 
     private final DeviceRepository deviceRepo;
     private final SessionRegistry  sessions;
+    
+    // Command Queue for devices that pulse (connect/disconnect quickly)
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.Queue<io.netty.buffer.ByteBuf>> commandQueue = new java.util.concurrent.ConcurrentHashMap<>();
 
     public IsapiService(DeviceRepository deviceRepo, SessionRegistry sessions) {
         this.deviceRepo = deviceRepo;
@@ -265,22 +268,35 @@ public class IsapiService {
     }
 
     /** 
-     * Tries to execute an ISAPI command via the existing ISUP connection (Transparent Channel).
-     * Returns true if successfully swallowed by ISUP path.
+     * Tries to execute an ISAPI command.
+     * If device is online, sends immediately. 
+     * If pulsing/offline, adds to queue to be sent on next registration.
      */
     private boolean isupExecute(String deviceId, String path, String method, String body) {
-        return sessions.findByDeviceId(deviceId).map(session -> {
-            if (session.isActive()) {
-                io.netty.buffer.ByteBuf packet;
-                // Currently optimized for V4/V1 wrapper (most common for DS-K1T343)
-                packet = com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(session.getSessionId(), path, method, body);
-                
-                log.info("ISUP_COMMAND: {} to {} via session {}", method, deviceId, session.getSessionId());
-                session.getChannel().writeAndFlush(packet);
-                return true;
+        io.netty.buffer.ByteBuf packet = com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(0, path, method, body);
+        
+        Optional<com.isup.session.DeviceSession> sessionOpt = sessions.findByDeviceId(deviceId);
+        if (sessionOpt.isPresent() && sessionOpt.get().isActive()) {
+            log.info("ISUP_COMMAND: Sending {} to {} IMMEDIATELY", method, deviceId);
+            sessionOpt.get().getChannel().writeAndFlush(packet);
+            return true;
+        } else {
+            log.info("ISUP_COMMAND: Queuing {} for {} (will send on next login)", method, deviceId);
+            commandQueue.computeIfAbsent(deviceId, k -> new java.util.concurrent.ConcurrentLinkedQueue<>()).add(packet);
+            return true; // Return true to indicate it's handled (queued)
+        }
+    }
+
+    /** Called by IsupMessageHandler to drain pending commands on login */
+    public static void drainQueue(String deviceId, io.netty.channel.Channel channel) {
+        java.util.Queue<io.netty.buffer.ByteBuf> queue = commandQueue.get(deviceId);
+        if (queue != null && !queue.isEmpty()) {
+            log.info("ISUP_QUEUE: Draining {} commands for {}", queue.size(), deviceId);
+            while (!queue.isEmpty()) {
+                channel.write(queue.poll());
             }
-            return false;
-        }).orElse(false);
+            channel.flush();
+        }
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

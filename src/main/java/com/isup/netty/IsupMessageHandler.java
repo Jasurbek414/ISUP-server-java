@@ -143,8 +143,11 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             // 3. XML REG_RESULT (Type 0x54) - Some V4 terminals wait for this (EHome 5.0 terminals on V1 wrapper)
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
         }
-
+        
         ctx.flush();
+        
+        // DRAIN QUEUE: Send pending commands (Reboot, Users) before the device disconnects
+        com.isup.isapi.IsapiService.drainQueue(deviceId, ctx.channel());
 
         // Online Marker — call immediately (device may disconnect quickly after ACK)
         if (deviceService.onDeviceConnected(deviceId, ip)) {
