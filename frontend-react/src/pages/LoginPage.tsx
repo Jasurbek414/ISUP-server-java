@@ -43,9 +43,9 @@ export default function LoginPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-8">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30
-              border border-indigo-500/40 flex items-center justify-center text-2xl mb-4">
-              🔷
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/40 to-orange-500/40
+              border border-amber-500/50 flex items-center justify-center text-2xl mb-4 shadow-xl shadow-amber-500/10">
+              ✨
             </div>
             <h1 className="text-2xl font-bold text-white">ISUP Server</h1>
             <p className="text-white/40 text-sm mt-1">Boshqaruv paneli</p>
