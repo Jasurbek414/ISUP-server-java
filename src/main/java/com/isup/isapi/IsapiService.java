@@ -211,6 +211,7 @@ public class IsapiService {
     }
 
     public void rebootDevice(String deviceId) {
+        if (isupExecute(deviceId, "/ISAPI/System/reboot", "POST", null)) return;
         new SystemModule(clientFor(deviceId)).reboot();
     }
 
@@ -253,11 +254,33 @@ public class IsapiService {
     }
 
     public String addUserToDevice(String deviceId, String employeeNo, String name, String cardNo) {
+        String xml = String.format("<UserInfo><employeeNo>%s</employeeNo><name>%s</name><Valid><beginTime>2020-01-01T00:00:00</beginTime><endTime>2037-12-31T23:59:59</endTime></Valid></UserInfo>", employeeNo, name);
+        if (isupExecute(deviceId, "/ISAPI/AccessControl/UserInfo/Record", "POST", xml)) return "Success (via ISUP)";
         return new UserModule(clientFor(deviceId)).addUser(employeeNo, name, cardNo, "normal");
     }
 
     public String deleteUserFromDevice(String deviceId, String employeeNo) {
+        if (isupExecute(deviceId, "/ISAPI/AccessControl/UserInfo/Record?employeeNo=" + employeeNo, "DELETE", null)) return "Deleted (via ISUP)";
         return new UserModule(clientFor(deviceId)).deleteUser(employeeNo);
+    }
+
+    /** 
+     * Tries to execute an ISAPI command via the existing ISUP connection (Transparent Channel).
+     * Returns true if successfully swallowed by ISUP path.
+     */
+    private boolean isupExecute(String deviceId, String path, String method, String body) {
+        return sessions.findByDeviceId(deviceId).map(session -> {
+            if (session.isActive()) {
+                io.netty.buffer.ByteBuf packet;
+                // Currently optimized for V4/V1 wrapper (most common for DS-K1T343)
+                packet = com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(session.getSessionId(), path, method, body);
+                
+                log.info("ISUP_COMMAND: {} to {} via session {}", method, deviceId, session.getSessionId());
+                session.getChannel().writeAndFlush(packet);
+                return true;
+            }
+            return false;
+        }).orElse(false);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

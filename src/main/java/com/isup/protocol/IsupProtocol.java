@@ -458,6 +458,39 @@ public class IsupProtocol {
         return buf;
     }
 
+    /** Encodes a generic V5 frame (STX=0x20) */
+    public static ByteBuf encodeV5(int type, int sid, int seq, byte[] payload) {
+        byte[] p = payload == null ? new byte[0] : payload;
+        int totalLen = 14 + p.length;
+        ByteBuf buf = Unpooled.buffer(totalLen);
+        buf.writeByte(0x20);            // STX
+        buf.writeIntLE(totalLen);
+        buf.writeShortLE(type);
+        buf.writeIntLE(sid);
+        buf.writeShortLE(seq);
+        if (p.length > 0) buf.writeBytes(p);
+        buf.writeByte(0x20);            // ETX
+        return buf;
+    }
+
+    /** 
+     * Builds an ISAPI Transparent packet for V1/V4 terminals.
+     * Often used for Reboot, User Add, etc.
+     */
+    public static ByteBuf buildV1IsapiTransparent(int sid, String path, String method, String body) {
+        // Simple V1 wrapper for ISAPI: [path][\0][body]
+        byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
+        byte[] bodyBytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
+        
+        ByteBuf payload = Unpooled.buffer(pathBytes.length + 1 + bodyBytes.length);
+        payload.writeBytes(pathBytes);
+        payload.writeByte(0);
+        payload.writeBytes(bodyBytes);
+        
+        // Command Type 0x08 is typically "Transparent Channel"
+        return encodeV1(payload, (byte)0x08);
+    }
+
     private static ByteBuf encodeV1Xml(String xml, byte cmd) {
         byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
         return encodeV1(Unpooled.wrappedBuffer(xmlBytes), cmd);
