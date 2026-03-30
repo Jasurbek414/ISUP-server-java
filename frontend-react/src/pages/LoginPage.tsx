@@ -91,13 +91,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl font-medium
-                bg-gradient-to-r from-indigo-500 to-purple-500
-                hover:from-indigo-400 hover:to-purple-400
-                active:scale-95 transition-all duration-200
-                disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold shadow-xl shadow-orange-900/20 transition-all active:scale-95 disabled:opacity-50"
             >
-              {loading ? 'Tekshirilmoqda...' : 'Kirish'}
+              {loading ? 'Kirish...' : 'Kirish'}
             </button>
           </form>
         </div>
