@@ -276,12 +276,12 @@ public class IsapiService {
         
         Optional<com.isup.session.DeviceSession> sessionOpt = sessions.findByDeviceId(deviceId);
         if (sessionOpt.isPresent() && sessionOpt.get().isActive()) {
-            log.info("ISUP_COMMAND: Dispatching {} to {} with SID {}", method, deviceId, sessionOpt.get().getSessionId());
+            System.out.println("ISUP_DISPATCH: " + method + " to " + deviceId + " with sid=" + sessionOpt.get().getSessionId());
             io.netty.buffer.ByteBuf packet = com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sessionOpt.get().getSessionId(), path, method, body);
             sessionOpt.get().getChannel().writeAndFlush(packet);
             return true;
         } else {
-            log.info("ISUP_COMMAND: Queuing intent {} for {} (SID will be bound on next login)", method, deviceId);
+            System.out.println("ISUP_QUEUE_ADD: " + method + " for " + deviceId);
             commandQueue.computeIfAbsent(deviceId, k -> new java.util.concurrent.ConcurrentLinkedQueue<>()).add(intent);
             return true;
         }
@@ -291,7 +291,7 @@ public class IsapiService {
     public static void drainQueue(String deviceId, int sid, io.netty.channel.Channel channel) {
         java.util.Queue<IsupCommandIntent> queue = commandQueue.get(deviceId);
         if (queue != null && !queue.isEmpty()) {
-            log.info("ISUP_QUEUE: Draining {} intents for {} with live SID {}", queue.size(), deviceId, sid);
+            System.out.println("ISUP_DRAIN_START: " + queue.size() + " commands for " + deviceId + " with sid=" + sid);
             while (!queue.isEmpty()) {
                 IsupCommandIntent intent = queue.poll();
                 if (intent != null) {

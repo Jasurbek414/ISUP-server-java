@@ -58,7 +58,7 @@ public class DeviceConfigController {
     /** POST /api/device-config/{deviceId}/reboot - reboot device */
     @PostMapping("/{deviceId}/reboot")
     public ResponseEntity<?> reboot(@PathVariable String deviceId) {
-        log.info("REST_REBOOT_REQUEST for {}", deviceId);
+        System.out.println("DEBUG_REST_REBOOT_TRIGGERED: " + deviceId);
         isapiService.rebootDevice(deviceId);
         return ResponseEntity.ok(Map.of("status", "rebooting"));
     }
