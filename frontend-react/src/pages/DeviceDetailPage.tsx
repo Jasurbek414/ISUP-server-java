@@ -111,11 +111,11 @@ function RebootButton({ deviceId }: { deviceId: string }) {
   if (confirm) return (
     <div className="flex gap-2">
       <button onClick={() => setConfirm(false)}
-        className="px-3 py-1.5 rounded-lg text-sm border border-white/10 text-white/60 hover:bg-white/5">
+        className="px-3 py-1.5 rounded-lg text-sm border border-white/10 text-white/50 hover:bg-white/5 transition-all">
         Bekor
       </button>
       <button onClick={() => mut.mutate()} disabled={mut.isPending}
-        className="px-3 py-1.5 rounded-lg text-sm bg-red-500/20 border border-red-500/30 text-red-400 disabled:opacity-50">
+        className="px-4 py-1.5 rounded-lg text-sm bg-rose-600 text-white disabled:opacity-50 font-bold active:scale-95 transition-all">
         {mut.isPending ? '...' : 'Tasdiqlash'}
       </button>
     </div>
@@ -156,11 +156,17 @@ function DeleteDeviceButton({ device }: { device: any }) {
             Haqiqatan ham <span className="text-white font-medium">{device.name || device.deviceId}</span> qurilmasini butunlay tizimdan o'chirmoqchimisiz?
           </p>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setOpen(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all text-sm">
+            <button 
+              onClick={() => setOpen(false)} 
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/50 hover:bg-white/5 transition-all text-sm font-medium"
+            >
               Bekor qilish
             </button>
-            <button onClick={() => mut.mutate()} disabled={mut.isPending}
-              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 transition-all disabled:opacity-50 font-medium text-sm">
+            <button 
+              onClick={() => mut.mutate()} 
+              disabled={mut.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-rose-600 border border-rose-500/30 text-white hover:bg-rose-500 transition-all disabled:opacity-50 font-bold text-sm"
+            >
               {mut.isPending ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
             </button>
           </div>

@@ -48,13 +48,15 @@ public class DeviceCapabilityDetector {
             // Use stored credentials or defaults
             String username = device.getDeviceUsername() != null ? device.getDeviceUsername() : "admin";
             String password = device.getDevicePassword() != null ? device.getDevicePassword() : "";
+            int    port     = device.getDevicePort() != null ? device.getDevicePort() : 80;
+            boolean ssl     = device.getUseHttps() != null && device.getUseHttps();
 
             // Update device_ip from ISUP connection
             if (ip != null && !ip.equals(device.getDeviceIp())) {
                 device.setDeviceIp(ip);
             }
 
-            IsapiClient client = new IsapiClient(ip, username, password);
+            IsapiClient client = new IsapiClient(ip, port, ssl, username, password);
             DeviceModule dm = new DeviceModule(client);
             DeviceInfo info = dm.getDeviceInfo();
 

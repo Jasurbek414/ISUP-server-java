@@ -170,8 +170,18 @@ export default function DevicesPage() {
           </div>
 
           <div className="flex gap-3 pt-4 sticky bottom-0 bg-[#0a0a0c] py-2">
-            <button type="button" onClick={()=>setAddOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all">Bekor</button>
-            <button type="submit" disabled={addMut.isPending} className="flex-1 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 disabled:opacity-50 hover:bg-indigo-500/30 transition-all font-medium">
+            <button 
+              type="button" 
+              onClick={() => setAddOpen(false)} 
+              className="flex-1 py-3 rounded-xl bg-slate-500/10 border border-white/10 text-white/70 hover:bg-slate-500/20 transition-all font-medium"
+            >
+              Bekor qilish
+            </button>
+            <button 
+              type="submit" 
+              disabled={addMut.isPending} 
+              className="flex-1 py-3 rounded-xl bg-indigo-600 border border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50 hover:bg-indigo-500 transition-all font-bold active:scale-95"
+            >
               {addMut.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
             </button>
           </div>
@@ -268,13 +278,16 @@ function DeviceCard({ device }: { device: Device }) {
             Barcha sozlamalar va tarixiy ma'lumotlar yo'qoladi.
           </p>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setDelOpen(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-all text-sm">
+            <button 
+              onClick={() => setDelOpen(false)} 
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/50 hover:bg-white/5 transition-all text-sm font-medium"
+            >
               Bekor qilish
             </button>
             <button 
               onClick={() => deleteMut.mutate()} 
               disabled={deleteMut.isPending}
-              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 transition-all disabled:opacity-50 font-medium text-sm"
+              className="flex-1 py-2.5 rounded-xl bg-rose-600 border border-rose-500/30 text-white hover:bg-rose-500 transition-all disabled:opacity-50 font-bold text-sm active:scale-95"
             >
               {deleteMut.isPending ? 'O\'chirilmoqda...' : 'Ha, o\'chirish'}
             </button>
