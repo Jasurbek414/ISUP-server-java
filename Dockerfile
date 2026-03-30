@@ -1,8 +1,19 @@
+# Build frontend first
+FROM node:20-alpine AS frontend-builder
+WORKDIR /web
+COPY frontend-react/package*.json ./
+RUN npm install --legacy-peer-deps
+COPY frontend-react ./
+RUN npm run build
+
+# Build backend with frontend static files
 FROM gradle:8.6-jdk17 AS builder
 WORKDIR /app
 COPY build.gradle settings.gradle ./
 RUN gradle dependencies --no-daemon -q || true
 COPY src src
+# Copy new frontend build into backend static resources
+COPY --from=frontend-builder /web/dist /app/src/main/resources/static
 RUN gradle bootJar --no-daemon -q
 
 FROM eclipse-temurin:17-jre-alpine
