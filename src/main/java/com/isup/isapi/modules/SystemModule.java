@@ -19,7 +19,7 @@ public class SystemModule {
     /** GET /ISAPI/System/time - device time */
     public String getTime() {
         try {
-            return client.get("/ISAPI/System/time");
+            return client.get("/ISAPI/System/time?format=json");
         } catch (IsapiException e) {
             throw e;
         } catch (Exception e) {
@@ -44,7 +44,7 @@ public class SystemModule {
     /** POST /ISAPI/System/reboot - reboot device */
     public void reboot() {
         try {
-            client.put("/ISAPI/System/reboot", "{}");
+            client.post("/ISAPI/System/reboot", "{}");
         } catch (IsapiException e) {
             throw e;
         } catch (Exception e) {
@@ -55,7 +55,7 @@ public class SystemModule {
     /** GET /ISAPI/System/Network/interfaces - network settings */
     public String getNetworkInterfaces() {
         try {
-            return client.get("/ISAPI/System/Network/interfaces");
+            return client.get("/ISAPI/System/Network/interfaces?format=json");
         } catch (IsapiException e) {
             throw e;
         } catch (Exception e) {
@@ -66,7 +66,7 @@ public class SystemModule {
     /** GET /ISAPI/System/Network/interfaces/1/ipAddress - IP config */
     public String getIpConfig() {
         try {
-            return client.get("/ISAPI/System/Network/interfaces/1/ipAddress");
+            return client.get("/ISAPI/System/Network/interfaces/1/ipAddress?format=json");
         } catch (IsapiException e) {
             log.debug("getIpConfig: {}", e.getMessage());
             return "{}";
@@ -79,7 +79,7 @@ public class SystemModule {
     /** GET /ISAPI/System/capabilities - device full capabilities */
     public String getCapabilities() {
         try {
-            return client.get("/ISAPI/System/capabilities");
+            return client.get("/ISAPI/System/capabilities?format=json");
         } catch (IsapiException e) {
             log.debug("getCapabilities: {}", e.getMessage());
             return "{}";
@@ -92,7 +92,7 @@ public class SystemModule {
     /** GET /ISAPI/System/status - system status (CPU, memory, temp) */
     public String getSystemStatus() {
         try {
-            return client.get("/ISAPI/System/status");
+            return client.get("/ISAPI/System/status?format=json");
         } catch (IsapiException e) {
             log.debug("getSystemStatus: {}", e.getMessage());
             return "{}";
@@ -105,7 +105,7 @@ public class SystemModule {
     /** GET /ISAPI/System/Storage/hdd - storage info */
     public String getStorageInfo() {
         try {
-            return client.get("/ISAPI/System/Storage/hdd");
+            return client.get("/ISAPI/System/Storage/hdd?format=json");
         } catch (IsapiException e) {
             log.debug("getStorageInfo: {}", e.getMessage());
             return "{}";
@@ -118,7 +118,7 @@ public class SystemModule {
     /** GET /ISAPI/System/deviceInfo - basic device info (model, firmware, serial) */
     public String getDeviceInfo() {
         try {
-            return client.get("/ISAPI/System/deviceInfo");
+            return client.get("/ISAPI/System/deviceInfo?format=json");
         } catch (IsapiException e) {
             log.debug("getDeviceInfo: {}", e.getMessage());
             return "{}";

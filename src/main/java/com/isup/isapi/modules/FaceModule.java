@@ -20,43 +20,58 @@ public class FaceModule {
 
     /**
      * Add or update a face record on the device.
-     * Uses multipart POST with JSON metadata + JPEG photo.
+     * Supports both Access Control terminals (FaceInfo/SetUp) and NVRs (FDLib).
      */
     public boolean enrollFace(FaceRecord face) {
+        // Many face terminals use /ISAPI/AccessControl/FaceInfo/SetUp?format=json
+        // While cameras/NVRs use /ISAPI/Intelligent/FDLib/FDSetUp/picture
+        
         try {
-            // Build JSON metadata
+            // Build metadata
+            String json;
+            String endpoint;
+            
+            // Heuristic or capability check could be here. For now, try AccessControl first if it's a Face Terminal
+            ObjectNode root = mapper.createObjectNode();
             ObjectNode faceInfo = mapper.createObjectNode();
             faceInfo.put("employeeNo", face.getEmployeeNo());
             faceInfo.put("name", face.getName() != null ? face.getName() : "");
-            faceInfo.put("userType", "normal");
             faceInfo.put("gender", face.getGender() != null ? face.getGender() : "male");
-            faceInfo.set("Valid", mapper.createObjectNode()
-                    .put("enable", true)
-                    .put("beginTime", "2000-01-01T00:00:00")
-                    .put("endTime", "2037-12-31T23:59:59"));
-
-            ObjectNode root = mapper.createObjectNode();
-            root.putArray("FaceInfoCond").add(faceInfo);
-            String json = mapper.writeValueAsString(root);
+            
+            // Format for /ISAPI/AccessControl/FaceInfo/SetUp (Face Terminals)
+            root.set("FaceInfo", faceInfo);
+            json = mapper.writeValueAsString(root);
+            endpoint = "/ISAPI/AccessControl/FaceInfo/SetUp?format=json";
 
             // Decode photo from base64
             byte[] photoBytes = Base64.getDecoder().decode(face.getPhotoBase64());
 
-            // POST multipart
-            String result = client.postMultipart(
-                    "/ISAPI/Intelligent/FDLib/FDSetUp/picture",
-                    json, photoBytes, face.getEmployeeNo() + ".jpg");
+            log.info("Enrolling face on {} for employee={}", client.getBaseUrl(), face.getEmployeeNo());
+            
+            String result;
+            try {
+                result = client.postMultipart(endpoint, json, photoBytes, face.getEmployeeNo() + ".jpg");
+            } catch (IsapiException e) {
+                if (e.getStatusCode() == 404 || e.getStatusCode() == 405) {
+                    log.info("AccessControl endpoint not supported on {}, falling back to FDLib", client.getBaseUrl());
+                    // Fallback to /ISAPI/Intelligent/FDLib/FDSetUp/picture (NVRs/Cameras)
+                    ObjectNode condRoot = mapper.createObjectNode();
+                    ObjectNode cond = mapper.createObjectNode();
+                    cond.put("employeeNo", face.getEmployeeNo());
+                    cond.put("name", face.getName() != null ? face.getName() : "");
+                    condRoot.putArray("FaceInfoCond").add(cond);
+                    json = mapper.writeValueAsString(condRoot);
+                    endpoint = "/ISAPI/Intelligent/FDLib/FDSetUp/picture";
+                    result = client.postMultipart(endpoint, json, photoBytes, face.getEmployeeNo() + ".jpg");
+                } else {
+                    throw e;
+                }
+            }
 
-            log.info("enrollFace device={} employee={} → {}",
-                    client.getBaseUrl(), face.getEmployeeNo(),
-                    result.length() > 100 ? result.substring(0, 100) : result);
+            log.debug("enrollFace result: {}", result);
             return true;
-        } catch (IsapiException e) {
-            log.error("enrollFace failed for {}: {} (status {})",
-                    face.getEmployeeNo(), e.getMessage(), e.getStatusCode());
-            return false;
         } catch (Exception e) {
-            log.error("enrollFace exception for {}: {}", face.getEmployeeNo(), e.getMessage());
+            log.error("enrollFace failed for {}: {}", face.getEmployeeNo(), e.getMessage());
             return false;
         }
     }
