@@ -89,17 +89,29 @@ export default function DevicesPage() {
           ))}
           <div>
             <label className="block text-white/60 text-sm mb-2">Face ID / ISAPI Paroli</label>
-            <input {...register('devicePassword')} type="password" placeholder="admin12345" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+            <input 
+              {...register('devicePassword')} 
+              type="password" 
+              autoComplete="current-password"
+              placeholder="admin12345" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"
+            />
             <p className="text-[10px] text-white/30 mt-1">Qurilma sozlamalariga kirish (web-interface) paroli</p>
           </div>
           <div>
             <label className="block text-white/60 text-sm mb-2">ISUP Kaliti (Login key)</label>
-            <input {...register('password')} type="password" placeholder="Key123" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"/>
+            <input 
+              {...register('password')} 
+              type="password" 
+              autoComplete="new-password"
+              placeholder="Key123" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-indigo-500/50"
+            />
             <p className="text-[10px] text-white/30 mt-1">Platform Access / ISUP / Verification Code</p>
           </div>
           
           <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3 text-[11px] text-indigo-200/60 leading-relaxed">
-            <p className="font-bold mb-1 text-indigo-300">💡 Qisqa yordam:</p>
+            <p className="font-bold mb-1 text-indigo-300">💡 Qisqa yordam (v1.1.3):</p>
             <ul className="list-disc list-inside space-y-0.5">
               <li><b>Device ID</b>: Qurilma uchun noyob nom</li>
               <li><b>Admin Paroli</b>: Qurilma web-interfeysi paroli</li>
