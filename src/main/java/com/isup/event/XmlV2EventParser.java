@@ -43,14 +43,14 @@ public class XmlV2EventParser implements EventParser {
                 return Optional.empty();
             }
 
-            String employeeNo  = text(doc, "employeeNoString", "employeeNo");
-            String name        = text(doc, "name", "employeeName");
-            String cardNo      = text(doc, "cardNo", "cardNum");
-            String verifyMode  = normalizeVerifyMode(text(doc, "currentVerifyMode", "verifyMode"));
-            String direction   = mapAttendanceStatus(text(doc, "AttendanceStatus", "direction"));
-            int    doorNo      = parseInt(text(doc, "doorNo", "doorId"), 1);
-            String photo       = text(doc, "picData", "picDataRecord");
-            Instant eventTime  = parseDateTime(text(doc, "dateTime", "eventTime"));
+            String employeeNo  = text(doc, "employeeNoString", "employeeNo", "employeeNoString");
+            String name        = text(doc, "name", "employeeName", "name", "employeeName");
+            String cardNo      = text(doc, "cardNo", "cardNum", "cardNo");
+            String verifyMode  = normalizeVerifyMode(text(doc, "currentVerifyMode", "verifyMode", "currentVerifyMode"));
+            String direction   = mapAttendanceStatus(text(doc, "AttendanceStatus", "attendanceStatus", "direction"));
+            int    doorNo      = parseInt(text(doc, "doorNo", "doorId", "doorNo"), 1);
+            String photo       = text(doc, "picData", "picDataRecord", "picData");
+            Instant eventTime  = parseDateTime(text(doc, "dateTime", "eventTime", "dateTime"));
 
             return Optional.of(AttendanceEvent.builder()
                     .eventId(UUID.randomUUID().toString())
