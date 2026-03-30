@@ -322,44 +322,51 @@ function DeviceCard({ device, onEdit }: { device: Device; onEdit: () => void }) 
 
   return (
     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:-translate-y-0.5 hover:border-white/20 transition-all duration-300 group">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className={online ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' : 'w-2 h-2 rounded-full bg-gray-500'} />
-          <span className="text-white font-medium">{device.name || device.deviceId}</span>
+      {/* Status & Name Row */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={online ? 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)] animate-pulse' : 'w-2.5 h-2.5 rounded-full bg-gray-600'} />
+          <span className="text-white font-bold truncate text-lg tracking-tight">{device.name || device.deviceId}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={(e) => { e.stopPropagation(); onEdit() }}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase font-bold tracking-tighter text-amber-500/60 hover:text-amber-400 hover:bg-amber-500/10 transition-all border border-amber-500/0 hover:border-amber-500/20"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            Tahrirlash
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase font-bold tracking-tighter text-rose-500/40 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-rose-500/0 hover:border-rose-500/20"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            O'chirish
-          </button>
-          <span className={online ? 'text-xs px-2 py-0.5 rounded-full border bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'text-xs px-2 py-0.5 rounded-full border bg-gray-500/20 border-gray-500/30 text-gray-400'}>
-            {online ? 'Online' : 'Offline'}
-          </span>
+        <span className={online ? 'text-[10px] px-2 py-0.5 rounded-full border bg-emerald-500/20 border-emerald-500/30 text-emerald-400 font-black uppercase' : 'text-[10px] px-2 py-0.5 rounded-full border bg-gray-500/10 border-gray-500/20 text-gray-500 font-black uppercase'}>
+          {online ? 'Online' : 'Offline'}
+        </span>
+      </div>
+
+      {/* Action Buttons Row */}
+      <div className="flex items-center gap-2 mb-5">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all border border-amber-500/20"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Tahrirlash
+        </button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); setDelOpen(true) }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest text-rose-500/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-rose-500/20"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          O'chirish
+        </button>
+      </div>
+
+      <div className="space-y-1.5 mb-6 opacity-80">
+        {device.model && <p className="text-white/70 text-sm font-medium">{device.model}</p>}
+        {device.project && (
+          <div className="flex items-center gap-1.5 text-indigo-400/80 text-[11px] font-bold uppercase">
+            <span>🏢</span> {device.project.name}
+          </div>
+        )}
+        <div className="flex flex-col gap-0.5">
+          {(device.deviceIp||device.ipAddress) && <p className="text-white/50 text-xs font-mono">{device.deviceIp||device.ipAddress}</p>}
+          {device.location && <p className="text-white/40 text-[10px] italic">{device.location}</p>}
         </div>
       </div>
-      
-      {device.model && <p className="text-white/50 text-sm mb-1">{device.model}</p>}
-      {device.project && (
-        <p className="text-indigo-400/60 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1">
-          🏢 {device.project.name}
-        </p>
-      )}
-      {(device.deviceIp||device.ipAddress) && <p className="text-white/40 text-xs mb-1">{device.deviceIp||device.ipAddress}</p>}
-      {device.location && <p className="text-white/30 text-xs mb-3">{device.location}</p>}
       {caps.length > 0 && (
         <div className="flex gap-1 flex-wrap mb-3">
           {caps.slice(0,4).map(c=><span key={c} className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{c}</span>)}
