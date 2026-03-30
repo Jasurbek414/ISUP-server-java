@@ -191,7 +191,7 @@ Brauzerda oching: **https://fake-faceid.uzinc.uz**
 
 ```
 Login: admin
-Parol: admin123
+Parol: isup1234
 ```
 
 ### API orqali kirish

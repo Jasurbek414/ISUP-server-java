@@ -147,7 +147,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         ctx.flush();
         
         // DRAIN QUEUE: Send pending commands (Reboot, Users) before the device disconnects
-        com.isup.isapi.IsapiService.drainQueue(deviceId, ctx.channel());
+        com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
 
         // Online Marker — call immediately (device may disconnect quickly after ACK)
         if (deviceService.onDeviceConnected(deviceId, ip)) {

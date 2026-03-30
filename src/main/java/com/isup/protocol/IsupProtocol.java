@@ -478,16 +478,17 @@ public class IsupProtocol {
      * Often used for Reboot, User Add, etc.
      */
     public static ByteBuf buildV1IsapiTransparent(int sid, String path, String method, String body) {
-        // Simple V1 wrapper for ISAPI: [path][\0][body]
+        // V1 wrapper for ISAPI on V4.0 Terminals: [SID:4LE][path][\0][body]
         byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
         byte[] bodyBytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
         
-        ByteBuf payload = Unpooled.buffer(pathBytes.length + 1 + bodyBytes.length);
+        ByteBuf payload = Unpooled.buffer(4 + pathBytes.length + 1 + bodyBytes.length);
+        payload.writeIntLE(sid);
         payload.writeBytes(pathBytes);
         payload.writeByte(0);
         payload.writeBytes(bodyBytes);
         
-        // Command Type 0x08 is typically "Transparent Channel"
+        // Command Type 0x08 is "Transparent Channel"
         return encodeV1(payload, (byte)0x08);
     }
 

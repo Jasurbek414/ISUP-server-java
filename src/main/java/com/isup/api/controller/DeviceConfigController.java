@@ -7,6 +7,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/device-config")
+@lombok.extern.slf4j.Slf4j
 public class DeviceConfigController {
 
     private final com.isup.api.service.DeviceService deviceService;
@@ -57,6 +58,7 @@ public class DeviceConfigController {
     /** POST /api/device-config/{deviceId}/reboot - reboot device */
     @PostMapping("/{deviceId}/reboot")
     public ResponseEntity<?> reboot(@PathVariable String deviceId) {
+        log.info("REST_REBOOT_REQUEST for {}", deviceId);
         isapiService.rebootDevice(deviceId);
         return ResponseEntity.ok(Map.of("status", "rebooting"));
     }
@@ -113,6 +115,7 @@ public class DeviceConfigController {
     /** POST /api/device-config/{deviceId}/users - add user to device */
     @PostMapping("/{deviceId}/users")
     public ResponseEntity<?> addUser(@PathVariable String deviceId, @RequestBody AddUserRequest req) {
+        log.info("REST_ADD_USER_REQUEST for {} (emp={})", deviceId, req != null ? req.employeeNo() : "null");
         return ResponseEntity.ok(isapiService.addUserToDevice(deviceId, req.employeeNo(), req.name(), req.cardNo()));
     }
 
