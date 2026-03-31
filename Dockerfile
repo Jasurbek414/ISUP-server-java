@@ -14,7 +14,7 @@ RUN gradle dependencies --no-daemon -q || true
 COPY src src
 # Copy new frontend build into backend static resources
 COPY --from=frontend-builder /web/dist /app/src/main/resources/static
-RUN gradle bootJar --no-daemon
+RUN gradle bootJar --no-daemon -x test
 
 FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache fontconfig ttf-dejavu
