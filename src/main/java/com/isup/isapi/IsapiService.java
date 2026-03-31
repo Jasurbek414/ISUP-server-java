@@ -181,6 +181,8 @@ public class IsapiService {
     }
 
     public void updateCameraImageSettings(String deviceId, int channelId, String json) {
+        String path = String.format("/ISAPI/ContentMgmt/InputProxy/channels/%d/image", channelId);
+        if (isupExecute(deviceId, path, "PUT", json)) return;
         new CameraModule(clientFor(deviceId)).putImageSettings(channelId, json);
     }
 
@@ -191,6 +193,9 @@ public class IsapiService {
     // ─── PTZ ─────────────────────────────────────────────────────────────────
 
     public void ptzMove(String deviceId, int channelId, String direction, int speed) {
+        // PTZ move involves many paths, for simplicity we keep basic move via ISUP if possible
+        // but PTZ involves complex XML. AccessModule/PtzModule logic is better for now. 
+        // We will keep direct HTTP for PTZ unless it is critical.
         new PtzModule(clientFor(deviceId)).continuousMove(channelId, direction, speed);
     }
 
@@ -240,6 +245,8 @@ public class IsapiService {
     }
 
     public void triggerAlarmOutput(String deviceId, int outputId) {
+        String path = String.format("/ISAPI/System/IO/outputs/%d/trigger", outputId);
+        if (isupExecute(deviceId, path, "PUT", "<IOPortData><outputState>high</outputState></IOPortData>")) return;
         new AlarmModule(clientFor(deviceId)).triggerAlarmOutput(outputId);
     }
 
