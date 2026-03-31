@@ -32,13 +32,14 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
         if (login != null) {
             String deviceId = login.deviceId();
-            log.info("CLASSIC_HANDSHAKE: Device {} connecting via Binary ACK (sid=1234)", deviceId);
+            log.info("FULL_HANDSHAKE: Device {} connecting via 42-byte ACK (sid=12345)", deviceId);
             
-            // 1. Send Classic Binary Register ACK (Type 0x01) — The most compatible answer
-            ctx.write(IsupProtocol.buildV1RegisterResponseMini(1234, 60));
+            // 1. Send FULL Binary Register ACK (42 bytes total)
+            // This is the official size expected by modern firmware
+            ctx.write(IsupProtocol.buildV1RegisterResponse(12345, 60));
             
-            // 2. Send XML TimeSync (Type 0x51) — Required for modern firmware
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(1234, deviceId));
+            // 2. Send XML TimeSync
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(12345, deviceId));
             
             ctx.flush();
             
