@@ -48,6 +48,9 @@ public class EventLog {
     @Column(name = "photo_base64", columnDefinition = "TEXT")
     private String photoBase64;
 
+    @Column(name = "photo_path", length = 512)
+    private String photoPath;
+
     @Column(name = "raw_payload", columnDefinition = "TEXT")
     private String rawPayload;
 

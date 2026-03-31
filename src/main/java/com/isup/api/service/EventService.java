@@ -51,6 +51,8 @@ public class EventService {
     public EventLog saveAndDispatch(AttendanceEvent event) {
         Optional<Device> deviceOpt = deviceRepo.findByDeviceId(event.getDeviceId());
 
+        String photoPath = saveImage(event.getDeviceId(), event.getPhotoBase64());
+
         EventLog record = EventLog.builder()
                 .deviceId(event.getDeviceId())
                 .project(deviceOpt.map(Device::getProject).orElse(null))
@@ -62,7 +64,8 @@ public class EventService {
                 .doorNo(event.getDoorNo())
                 .verifyMode(event.getVerifyMode())
                 .eventTime(event.getEventTime() != null ? event.getEventTime() : Instant.now())
-                .photoBase64(event.getPhotoBase64())
+                .photoBase64(event.getPhotoBase64() != null && event.getPhotoBase64().length() < 1000 ? event.getPhotoBase64() : null) // Only keep small ones in DB
+                .photoPath(photoPath)
                 .rawPayload(event.getRawPayload())
                 .webhookStatus("pending")
                 .build();
@@ -133,5 +136,27 @@ public class EventService {
     public long countToday() {
         Instant startOfDay = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.DAYS);
         return eventRepo.countSince(startOfDay);
+    }
+
+    private String saveImage(String deviceId, String base64) {
+        if (base64 == null || base64.isEmpty()) return null;
+        try {
+            // Remove MIME prefix if present (e.g. data:image/jpeg;base64,)
+            String cleaned = base64.contains(",") ? base64.split(",")[1] : base64;
+            byte[] data = java.util.Base64.getDecoder().decode(cleaned);
+            
+            String fileName = deviceId + "_" + System.currentTimeMillis() + ".jpg";
+            java.nio.file.Path root = java.nio.file.Paths.get("storage", "photos");
+            java.nio.file.Files.createDirectories(root);
+            
+            java.nio.file.Path file = root.resolve(fileName);
+            java.nio.file.Files.write(file, data);
+            
+            log.debug("Photo saved to disk: {}", file.toString());
+            return "/api/events/photos/" + fileName; // Return relative URL
+        } catch (Exception e) {
+            log.warn("Failed to save image for {}: {}", deviceId, e.getMessage());
+            return null;
+        }
     }
 }
