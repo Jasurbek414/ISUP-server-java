@@ -33,6 +33,14 @@ public class IsapiService {
 
     /** Enroll face on a specific device. */
     public boolean enrollFace(String deviceId, FaceRecord face) {
+        // Step 1: Add/Update User Info first via ISUP if possible
+        String userXml = String.format("<UserInfo><employeeNo>%s</employeeNo><name>%s</name><Valid><beginTime>2020-01-01T00:00:00</beginTime><endTime>2037-12-31T23:59:59</endTime></Valid></UserInfo>", 
+                                       face.getEmployeeNo(), face.getName());
+        isupExecute(deviceId, "/ISAPI/AccessControl/UserInfo/Record", "POST", userXml);
+        
+        // Step 2: Send Face data. Face terminals often need multipart which ISUP 1.0 (binary) 
+        // handles via a special transparent channel. For now, fall back to direct HTTP for the binary part
+        // unless we fully implement multipart binary over ISUP.
         IsapiClient client = clientFor(deviceId);
         return new FaceModule(client).enrollFace(face);
     }
@@ -83,10 +91,16 @@ public class IsapiService {
     // ─── Door Control ─────────────────────────────────────────────────────────
 
     public boolean openDoor(String deviceId, int doorNo) {
+        String path = String.format("/ISAPI/AccessControl/RemoteControl/door/%d?format=json", doorNo);
+        String body = "{\"status\":\"open\"}";
+        if (isupExecute(deviceId, path, "PUT", body)) return true;
         return new AccessModule(clientFor(deviceId)).openDoor(doorNo);
     }
 
     public boolean closeDoor(String deviceId, int doorNo) {
+        String path = String.format("/ISAPI/AccessControl/RemoteControl/door/%d?format=json", doorNo);
+        String body = "{\"status\":\"close\"}";
+        if (isupExecute(deviceId, path, "PUT", body)) return true;
         return new AccessModule(clientFor(deviceId)).closeDoor(doorNo);
     }
 
