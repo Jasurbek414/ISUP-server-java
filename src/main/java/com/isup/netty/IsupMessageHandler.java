@@ -57,23 +57,21 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         log.info("Device login attempt: {} (IP: {}, Sid: {}, Ver: {})", 
                 deviceId, ip, session.getSessionId(), packet.getProtocolVersion());
 
-        // For v5.0 terminals like DS-K1T343EWX, especially those without a key:
-        // They often use the V1 frame (0x10) but expect a REG_RESULT XML success message.
-        if (packet.getMessageType() == LOGIN_REQUEST_V5 || packet.getProtocolVersion() == IsupPacket.VERSION_V5) {
-            log.info("Sending EHome 5.0 XML Success (REG_RESULT) to {}", deviceId);
-            ctx.writeAndFlush(IsupProtocol.buildV5XmlSuccessFull(session.getSessionId(), deviceId, ""));
+        String password = deviceService.getDevicePassword(deviceId);
+        int ver = packet.getProtocolVersion();
+
+        if (ver == IsupPacket.VERSION_V5) {
+            // EHome 5.0: STX=0x20 frame — respond with STX=0x20 XML
+            log.info("EHome 5.0 login from {} → buildV5XmlSuccessV5", deviceId);
+            ctx.writeAndFlush(IsupProtocol.buildV5XmlSuccessV5(session.getSessionId(), deviceId, password));
+        } else if (packet.getMessageType() == LOGIN_REQUEST_V5 || ver == IsupPacket.VERSION_V4) {
+            // EHome 4.0: STX=0x10 + XML payload — respond with STX=0x10 XML
+            log.info("EHome 4.0 login from {} → buildV5XmlSuccessFull", deviceId);
+            ctx.writeAndFlush(IsupProtocol.buildV5XmlSuccessFull(session.getSessionId(), deviceId, password));
         } else {
-            // Check if we have a password for this device
-            String password = deviceService.getDevicePassword(deviceId);
-            if (password == null || password.isEmpty()) {
-                log.info("No password for {}, sending immediate XML success", deviceId);
-                ctx.writeAndFlush(IsupProtocol.buildV5XmlSuccessFull(session.getSessionId(), deviceId, ""));
-            } else {
-                log.info("Sending Login Challenge to {}", deviceId);
-                byte[] challenge = new byte[32];
-                new java.util.Random().nextBytes(challenge);
-                ctx.writeAndFlush(IsupProtocol.buildV1Challenge(session.getSessionId(), challenge));
-            }
+            // V1 binary login — respond with binary success
+            log.info("V1 binary login from {} → buildV1MiniSuccess", deviceId);
+            ctx.writeAndFlush(IsupProtocol.buildV1MiniSuccess(session.getSessionId()));
         }
         
         deviceService.onDeviceConnected(deviceId, ip);
@@ -83,7 +81,13 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         DeviceSession session = sessionRegistry.getFromChannel(ctx.channel());
         if (session != null) {
             session.touch();
-            ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
+            if (packet.getProtocolVersion() == IsupPacket.VERSION_V5) {
+                // EHome 5.0: respond with STX=0x20 keepalive response
+                ctx.writeAndFlush(IsupProtocol.buildKeepaliveResponse(session.getSessionId(), packet.getSequenceNo()));
+            } else {
+                // V1 / EHome 4.0: respond with STX=0x10 keepalive response
+                ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
+            }
         }
     }
 
@@ -94,8 +98,12 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         String raw = new String(packet.getPayload(), StandardCharsets.UTF_8);
         log.debug("Alarm from {}: {}", session.getDeviceId(), raw);
 
-        // Acknowledge first
-        ctx.writeAndFlush(IsupProtocol.buildV1AlarmResponse(session.getSessionId()));
+        // Acknowledge first — format depends on protocol version
+        if (packet.getProtocolVersion() == IsupPacket.VERSION_V5) {
+            ctx.writeAndFlush(IsupProtocol.buildAlarmResponse(session.getSessionId(), packet.getSequenceNo()));
+        } else {
+            ctx.writeAndFlush(IsupProtocol.buildV1AlarmResponse(session.getSessionId()));
+        }
 
         // Parse and save
         for (EventParser parser : parsers) {

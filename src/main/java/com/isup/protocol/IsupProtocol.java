@@ -472,6 +472,27 @@ public class IsupProtocol {
         return buf;
     }
 
+    public static ByteBuf buildKeepaliveResponse(int sid, int seq) {
+        // v5.0 Keepalive Response (0x14)
+        return encodeV5(0x14, sid, seq, null);
+    }
+
+    public static ByteBuf buildAlarmResponse(int sid, int seq) {
+        // v5.0 Alarm Response (0x05)
+        return encodeV5(0x05, sid, seq, null);
+    }
+    
+    public static ByteBuf buildV1MiniSuccess(int sid) {
+        // Simple V1 binary success [10][05][54][00][SID:4]
+        ByteBuf buf = Unpooled.buffer(7);
+        buf.writeByte(0x10);
+        buf.writeByte(5);
+        buf.writeByte(0x54);
+        buf.writeByte(0x00);
+        buf.writeIntLE(sid);
+        return buf;
+    }
+
     /** 
      * Builds an ISAPI Transparent packet for V1/V4 terminals.
      * Often used for Reboot, User Add, etc.
