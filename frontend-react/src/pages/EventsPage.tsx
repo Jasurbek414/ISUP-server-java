@@ -16,6 +16,7 @@ interface Event {
   verifyMode?: string
   eventTime: string
   photoBase64?: string
+  photoPath?: string
   webhookStatus?: string
 }
 
@@ -116,20 +117,21 @@ export default function EventsPage() {
                         {format(new Date(ev.eventTime), 'MM/dd HH:mm:ss')}
                       </td>
                       <td className="px-6 py-3">
-                        {ev.photoBase64 ? (
+                        {(ev.photoPath || ev.photoBase64) ? (
                           <button
-                            onClick={() => setPhotoModal(ev.photoBase64!)}
+                            onClick={() => setPhotoModal(ev.photoPath ? ev.photoPath : (ev.photoBase64 ? `data:image/jpeg;base64,${ev.photoBase64}` : null))}
                             className="w-10 h-10 rounded-full overflow-hidden border border-white/20 hover:border-indigo-500/50"
                           >
                             <img
-                              src={`data:image/jpeg;base64,${ev.photoBase64}`}
+                              src={ev.photoPath ? ev.photoPath : `data:image/jpeg;base64,${ev.photoBase64}`}
                               alt="photo"
                               className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + (ev.employeeName || 'User') }}
                             />
                           </button>
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/30">
-                            👤
+                          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/30 text-xs">
+                             YUZ
                           </div>
                         )}
                       </td>
@@ -184,13 +186,15 @@ export default function EventsPage() {
       </div>
 
       {/* Photo Modal */}
-      <Modal open={!!photoModal} onClose={() => setPhotoModal(null)} title="Foto">
+      <Modal open={!!photoModal} onClose={() => setPhotoModal(null)} title="Tasdiqlangan Yuz">
         {photoModal && (
-          <img
-            src={`data:image/jpeg;base64,${photoModal}`}
-            alt="event photo"
-            className="w-full rounded-xl"
-          />
+          <div className="flex flex-col items-center">
+             <img
+               src={photoModal}
+               alt="event photo"
+               className="w-full rounded-2xl border-4 border-white/5 shadow-2xl"
+             />
+          </div>
         )}
       </Modal>
     </div>
