@@ -13,6 +13,7 @@ import com.isup.security.IpBanManager;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import com.isup.netty.LoginTimeoutHandler;
 import java.net.InetSocketAddress;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -141,7 +142,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         ctx.flush();
 
         // Register device in service
-        final String deviceIp = ctx.channel().remoteAddress().toString().substring(1).split(":")[0];
+        final String deviceIp = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress();
         deviceService.updateDeviceIp(deviceId, deviceIp);
         
         // Fire connection event (skip detector for now to prevent racing)
