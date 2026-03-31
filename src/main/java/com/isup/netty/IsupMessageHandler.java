@@ -10,10 +10,10 @@ import com.isup.api.service.DeviceService;
 import com.isup.event.AttendanceEvent;
 import com.isup.entity.EventLog;
 import com.isup.security.IpBanManager;
+import com.isup.netty.LoginTimeoutHandler;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import com.isup.netty.LoginTimeoutHandler;
 import java.net.InetSocketAddress;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Universal ISUP Handler: Multi-Success Burst for stubborn V5 terminals.
+ * Universal ISUP Handler: Stabilized for DS-K1T343EWX and V5.0 devices.
  */
 @Slf4j
 @Component
@@ -43,8 +43,6 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, IsupPacket packet) throws Exception {
         MessageType type = packet.getMessageType();
-        // LOGIN_REQUEST = V1/V5 binary login (0x01)
-        // LOGIN_REQUEST_V5 = EHome 4.0/5.0 XML REG command (0x53)
         if (type == MessageType.LOGIN_REQUEST || type == MessageType.LOGIN_REQUEST_V5) {
             ctx.channel().attr(LoginTimeoutHandler.LOGIN_RECEIVED).set(true);
             handleLogin(ctx, packet);
@@ -76,19 +74,15 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             byte[] nonce = login.nonce();
             int payloadLen = packet.getPayload().length;
 
-            log.info("DEBUG_HANDSHAKE: Login effort from {} (Ver={}, PathLen={})", deviceId, ver, payloadLen);
-
-            // ONE-STEP check: EHome 4.0/5.0 XML (usually >80 bytes) or V5 binary
+            // ONE-STEP check: EHome 4.0/5.0 XML or Modern V5
             if (payloadLen >= 80 || ver == IsupPacket.VERSION_V4 || ver == IsupPacket.VERSION_V5) {
-                log.info("DEBUG_HANDSHAKE: One-Step Path for {}", deviceId);
                 finalizeHandshake(ctx, deviceId, ip, nonce, ver);
                 return;
             }
 
-            // TWO-STEP Fallback (Challenge/Response)
+            // TWO-STEP Challenge/Response
             byte[] challenge = PENDING_CHALLENGES.remove(deviceId);
             if (challenge == null) {
-                log.info("DEBUG_HANDSHAKE: Step 1 (Challenge) for {}", deviceId);
                 byte[] serverChallenge = new byte[32];
                 new java.util.Random().nextBytes(serverChallenge);
                 PENDING_CHALLENGES.put(deviceId, serverChallenge);
@@ -96,10 +90,9 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                 if (ver == IsupPacket.VERSION_V1) {
                     ctx.writeAndFlush(IsupProtocol.buildV1Challenge(0, serverChallenge));
                 } else {
-                    // Standard V5 challenge: send LOGIN_RESPONSE with status 0x01 + nonce
                     int tempSid = 1000 + new java.util.Random().nextInt(9000);
                     byte[] challengePayload = new byte[1 + 4 + 32];
-                    challengePayload[0] = 0x01; // status: challenge required
+                    challengePayload[0] = 0x01; 
                     challengePayload[1] = (byte)(tempSid);
                     challengePayload[2] = (byte)(tempSid >> 8);
                     challengePayload[3] = (byte)(tempSid >> 16);
@@ -109,56 +102,36 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                 }
                 return;
             }
-
-            log.info("DEBUG_HANDSHAKE: Step 2 (Response) for {}", deviceId);
             finalizeHandshake(ctx, deviceId, ip, nonce, ver);
         }
     }
 
     private void finalizeHandshake(ChannelHandlerContext ctx, String deviceId, String ip, byte[] nonce, int ver) {
         final DeviceSession session = sessions.createSession(deviceId, ctx.channel(), ip);
-        int sid = session.getSessionId();
-
-        String password = deviceService.getDevicePassword(deviceId);
-        log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={}, auth={})", 
-                 deviceId, sid, ver, (password!=null && !password.isEmpty()));
-        
-        // STABILIZATION: Use a fixed official session ID for Hikvision HANDSHAKE
+        final int sid = session.getSessionId();
+        final int activeVer = ver;
+        final String password = deviceService.getDevicePassword(deviceId);
         final int handshakeSid = 10001; 
-        final int activeSid = sid; // Effectively final for Lambda
-        final int activeVer = ver; // Effectively final for Lambda
         
         if (activeVer == IsupPacket.VERSION_V5) {
-            // EHome 5.0 — Native v5.0 transport
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(handshakeSid, deviceId, password));
         } else {
-            // SUPER-STABLE: Send ONLY the modern XML REG_RESULT (Type 0x54) 
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(handshakeSid, deviceId, password));
-            
-            // Optionally add TimeSync as a separate packet (safe for 5.0)
             ctx.write(IsupProtocol.buildV5XmlTimeSync(handshakeSid, deviceId));
         }
-        
         ctx.flush();
 
-        // Register device in service
-        final String deviceIp = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress();
-        deviceService.updateDeviceIp(deviceId, deviceIp);
-        
-        // Fire connection event (skip detector for now to prevent racing)
-        if (deviceService.onDeviceConnected(deviceId, deviceIp)) {
-            log.info("ONLINE: Device {} registered (sid={}, ip={})", deviceId, handshakeSid, deviceIp);
-        } else {
-            log.warn("ID_MISMATCH: Device {} connected but not found in DB (auto-register failed?)", deviceId);
+        deviceService.updateDeviceIp(deviceId, ip);
+        if (deviceService.onDeviceConnected(deviceId, ip)) {
+            log.info("ONLINE: {} registered (sid={}, ip={})", deviceId, handshakeSid, ip);
         }
 
-        // Keepalive (Periodic sanity check) — format depends on protocol version
         ctx.executor().scheduleAtFixedRate(() -> {
             if (ctx.channel().isActive()) {
                 if (activeVer == IsupPacket.VERSION_V5) {
-                    ctx.writeAndFlush(IsupProtocol.encode(MessageType.KEEPALIVE_REQUEST, activeSid, 0, null));
+                    ctx.writeAndFlush(IsupProtocol.encode(MessageType.KEEPALIVE_REQUEST, sid, 0, null));
                 } else {
-                    ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveRequest(activeSid));
+                    ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveRequest(sid));
                 }
             }
         }, 15, 30, TimeUnit.SECONDS);
@@ -171,7 +144,6 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             if (ver == IsupPacket.VERSION_V5) {
                 ctx.writeAndFlush(IsupProtocol.buildKeepaliveResponse(session.getSessionId(), packet.getSequenceNo()));
             } else {
-                // V1 and V4 both use STX=0x10 keepalive response
                 ctx.writeAndFlush(IsupProtocol.buildV1KeepaliveResponse(session.getSessionId()));
             }
         }
@@ -179,26 +151,21 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
 
     private void handleAlarm(ChannelHandlerContext ctx, IsupPacket packet) {
         byte[] payload = packet.getPayload();
-        log.info("ALARM Received: session={} len={}", packet.getSessionId(), payload.length);
-        
         DeviceSession session = sessions.getFromChannel(ctx.channel());
         String deviceId = session != null ? session.getDeviceId() : "unknown";
         int sid = session != null ? session.getSessionId() : packet.getSessionId();
         
-        // 1. Process Event
         if (payload != null && payload.length > 0) {
             try {
                 String rawXml = new String(payload, java.nio.charset.StandardCharsets.UTF_8);
                 eventParserFactory.parse(deviceId, rawXml).ifPresent(event -> {
-                    log.info("ALARM Parsed: type={} employee={}", event.getEventType(), event.getEmployeeNo());
                     eventService.saveAndDispatch(event);
                 });
             } catch (Exception e) {
-                log.warn("Failed to parse alarm payload: {}", e.getMessage());
+                log.warn("Alarm parse failed: {}", e.getMessage());
             }
         }
 
-        // 2. Acknowledge
         if (packet.getProtocolVersion() == IsupPacket.VERSION_V1) {
             ctx.writeAndFlush(IsupProtocol.buildV1AlarmResponse(sid));
         } else {
@@ -210,11 +177,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         DeviceSession session = sessions.getFromChannel(ctx.channel());
         if (session != null) {
-            log.debug("TCP disconnected: {} (TTL monitor will handle offline status)", session.getDeviceId());
             sessions.removeSession(ctx.channel());
-            // Do NOT call onDeviceDisconnected here — EHome 4.0 devices use one-shot
-            // heartbeat TCP (connect every ~3.5s, immediately disconnect after ACK).
-            // DeviceStatusService TTL (90s) handles offline detection instead.
         }
         super.channelInactive(ctx);
     }
