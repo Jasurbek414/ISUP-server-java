@@ -32,8 +32,13 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
         if (login != null) {
             String deviceId = login.deviceId();
-            log.info("LOGIN: {}", deviceId);
-            ctx.writeAndFlush(IsupProtocol.buildV5XmlSuccessFull(10001, deviceId, ""));
+            log.info("STABILIZING: Device {} connected (sid=10001)", deviceId);
+            
+            // Send XML Handshake + TimeSync
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(10001, deviceId, ""));
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(10001, deviceId));
+            ctx.flush();
+            
             deviceService.onDeviceConnected(deviceId, ip);
         }
     }
