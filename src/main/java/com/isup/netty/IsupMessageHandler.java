@@ -95,7 +95,7 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         DeviceSession session = sessionRegistry.getFromChannel(ctx.channel());
         if (session == null) return;
 
-        String raw = new String(packet.getPayload(), StandardCharsets.UTF_8);
+        String raw = new String(packet.getPayloadSafe(), StandardCharsets.UTF_8);
         log.debug("Alarm from {}: {}", session.getDeviceId(), raw);
 
         // Acknowledge first — format depends on protocol version

@@ -18,6 +18,14 @@ public class IsapiClient {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final MediaType XML  = MediaType.parse("application/xml; charset=utf-8");
 
+    /** Shared base client — connection pool and dispatcher reused across all device clients. */
+    private static final OkHttpClient BASE_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build();
+
     private final OkHttpClient http;
     private final String baseUrl;
     protected final ObjectMapper mapper;
@@ -26,12 +34,9 @@ public class IsapiClient {
         String proto = useHttps ? "https://" : "http://";
         this.baseUrl = proto + deviceIp + (port == 80 && !useHttps ? "" : (port == 443 && useHttps ? "" : ":" + port));
         this.mapper  = new ObjectMapper();
-        this.http = new OkHttpClient.Builder()
+        // newBuilder() shares the connection pool and dispatcher from BASE_CLIENT
+        this.http = BASE_CLIENT.newBuilder()
                 .authenticator(new IsapiAuth(username, password))
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
                 .build();
     }
 

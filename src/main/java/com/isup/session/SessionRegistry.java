@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
@@ -25,7 +26,7 @@ public class SessionRegistry {
         
         byDeviceIdPort.put(deviceId + ":" + localPort, session);
         bySessionId.put(sessionId, session);
-        byDeviceId.computeIfAbsent(deviceId, k -> new ArrayList<>()).add(session);
+        byDeviceId.computeIfAbsent(deviceId, k -> new CopyOnWriteArrayList<>()).add(session);
         
         channel.attr(SESSION_KEY).set(session);
         return session;
