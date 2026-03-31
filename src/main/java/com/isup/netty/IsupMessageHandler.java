@@ -120,26 +120,30 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         log.info("DEBUG_HANDSHAKE: Sending Response for {} (sid={}, ver={}, auth={})", 
                  deviceId, sid, ver, (password!=null && !password.isEmpty()));
         
+        // STABILIZATION: Use a fixed official session ID for Hikvision
+        int stableSid = 10001; 
+        
         if (ver == IsupPacket.VERSION_V5) {
-            // EHome 5.0 — STX=0x20 binary frame
-            ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
+            // EHome 5.0 — Native v5.0 transport
+            ctx.write(IsupProtocol.buildV5XmlSuccessV5(stableSid, deviceId, password));
         } else {
-            // SUPER-HYBRID: Send BOTH Binary and XML + TimeSync
-            // 1. Classic Binary Register ACK (Type 0x01)
-            ctx.write(IsupProtocol.buildV1RegisterResponseMini(sid, 60));
+            // SUPER-STABLE: Send ONLY the modern XML REG_RESULT (Type 0x54) 
+            // Most v5.0 firmware prefers this as the ONLY ACK
+            ctx.write(IsupProtocol.buildV5XmlSuccessFull(stableSid, deviceId, password));
             
-            // 2. Modern XML REG_RESULT (Type 0x54)
-            ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
-
-            // 3. MANDATORY TIME SYNC: Required for v5.0 to stay online
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
+            // Optionally add TimeSync as a separate packet (safe for 5.0)
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(stableSid, deviceId));
         }
         
         ctx.flush();
+
+        // Register device in service
+        String deviceIp = ctx.channel().remoteAddress().toString().substring(1).split(":")[0];
+        deviceService.updateDeviceIp(deviceId, deviceIp);
         
-        // Online Marker — call immediately (device may disconnect quickly after ACK)
-        if (deviceService.onDeviceConnected(deviceId, ip)) {
-            log.info("ONLINE: Device {} registered (sid={}, ip={})", deviceId, sid, ip);
+        // Fire connection event (skip detector for now to prevent racing)
+        if (deviceService.onDeviceConnected(deviceId, deviceIp)) {
+            log.info("ONLINE: Device {} registered (sid={}, ip={})", deviceId, stableSid, deviceIp);
         } else {
             log.warn("ID_MISMATCH: Device {} connected but not found in DB (auto-register failed?)", deviceId);
         }
