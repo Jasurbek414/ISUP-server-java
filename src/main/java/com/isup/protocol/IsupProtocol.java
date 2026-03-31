@@ -279,8 +279,6 @@ public class IsupProtocol {
         buf.writeBytes(challenge);    // 32-byte server-side nonce
         return buf;
     }
-        return buf;
-    }
 
     public static ByteBuf buildV1MiniSuccess(int sessionId) {
         // 10-byte success packet (No HMAC)
