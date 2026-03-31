@@ -13,7 +13,7 @@ public class LoginTimeoutHandler extends ChannelInboundHandlerAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(LoginTimeoutHandler.class);
 
-    static final AttributeKey<Boolean> LOGIN_RECEIVED = AttributeKey.valueOf("LOGIN_RECEIVED");
+    public static final AttributeKey<Boolean> LOGIN_RECEIVED = AttributeKey.valueOf("LOGIN_RECEIVED");
 
     private static final long LOGIN_TIMEOUT_SECONDS = 10;
 
