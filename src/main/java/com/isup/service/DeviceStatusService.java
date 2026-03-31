@@ -2,6 +2,7 @@ package com.isup.service;
 
 import com.isup.entity.Device;
 import com.isup.repository.DeviceRepository;
+import com.isup.session.SessionRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -21,11 +22,13 @@ public class DeviceStatusService {
 
     private final DeviceRepository      deviceRepo;
     private final SimpMessagingTemplate ws;
+    private final SessionRegistry       sessions;
     private final Map<String, String>   lastKnownStatus = new ConcurrentHashMap<>();
 
-    public DeviceStatusService(DeviceRepository deviceRepo, SimpMessagingTemplate ws) {
+    public DeviceStatusService(DeviceRepository deviceRepo, SimpMessagingTemplate ws, SessionRegistry sessions) {
         this.deviceRepo = deviceRepo;
         this.ws = ws;
+        this.sessions = sessions;
     }
 
     @Transactional
@@ -36,7 +39,22 @@ public class DeviceStatusService {
 
         for (Device dev : devices) {
             String currentStatus = dev.getStatus();
-            boolean shouldBeOffline = dev.getLastSeen() == null || dev.getLastSeen().isBefore(threshold);
+
+            // Active TCP session = definitively online (handles persistent V1 + EHome 4.0)
+            boolean hasActiveSession = sessions.findByDeviceId(dev.getDeviceId())
+                    .map(s -> s.isActive()).orElse(false);
+
+            boolean shouldBeOffline;
+            if (hasActiveSession) {
+                shouldBeOffline = false;
+                // If DB says offline but TCP is active — sync lastSeen immediately
+                if (!"online".equals(currentStatus) || dev.getLastSeen() == null) {
+                    deviceRepo.updateStatus(dev.getDeviceId(), "online", Instant.now(), dev.getIpAddress());
+                }
+            } else {
+                shouldBeOffline = dev.getLastSeen() == null || dev.getLastSeen().isBefore(threshold);
+            }
+
             String expectedStatus = shouldBeOffline ? "offline" : "online";
 
             if (!expectedStatus.equals(currentStatus)) {

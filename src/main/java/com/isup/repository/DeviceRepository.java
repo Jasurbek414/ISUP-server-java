@@ -20,4 +20,8 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     @Query("SELECT d FROM Device d WHERE d.status = 'online'")
     List<Device> findOnlineDevices();
+
+    @Modifying
+    @Query("UPDATE Device d SET d.model = COALESCE(:model, d.model), d.firmware = COALESCE(:firmware, d.firmware), d.capabilities = :capabilities WHERE d.deviceId = :deviceId")
+    void updateCapabilities(String deviceId, String model, String firmware, String capabilities);
 }

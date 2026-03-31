@@ -70,8 +70,10 @@ public class DeviceService {
         Optional<Device> existing = deviceRepo.findByDeviceId(deviceId);
         if (existing.isPresent()) {
             String currentIp = existing.get().getDeviceIp();
-            // Don't overwrite the real IP with the Docker bridge's source NAT IP
-            if (ip.startsWith("172.") || ip.startsWith("10.") && currentIp != null && !currentIp.isEmpty() && !currentIp.startsWith("172.")) {
+            // Don't overwrite the admin-configured IP with Docker bridge / private NAT IP
+            boolean isNatIp = ip.startsWith("172.") || ip.startsWith("10.") || ip.startsWith("192.168.");
+            boolean hasRealIp = currentIp != null && !currentIp.isBlank() && !currentIp.startsWith("172.");
+            if (isNatIp && hasRealIp) {
                 ip = currentIp;
             }
             Device d = existing.get();

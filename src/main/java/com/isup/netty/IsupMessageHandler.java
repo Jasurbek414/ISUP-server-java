@@ -122,9 +122,10 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         DeviceSession session = sessionRegistry.getFromChannel(ctx.channel());
         if (session != null) {
-            log.info("Connection lost: {}", session.getDeviceId());
-            deviceService.onDeviceDisconnected(session.getDeviceId());
+            log.debug("TCP closed: {} (DeviceStatusService TTL will handle offline detection)", session.getDeviceId());
             sessionRegistry.removeSession(ctx.channel());
+            // Do NOT call onDeviceDisconnected immediately — EHome 4.0 devices reconnect every ~3.5s.
+            // DeviceStatusService checks active sessions every 15s and handles offline transition.
         }
         super.channelInactive(ctx);
     }
@@ -135,8 +136,8 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             DeviceSession session = sessionRegistry.getFromChannel(ctx.channel());
             if (session != null) {
                 log.warn("Idle timeout: disconnecting device {}", session.getDeviceId());
-                deviceService.onDeviceDisconnected(session.getDeviceId());
                 sessionRegistry.removeSession(ctx.channel());
+                // Status will be updated to offline by DeviceStatusService on next 15s check
             }
             ctx.close();
         } else {
