@@ -267,17 +267,18 @@ public class IsupProtocol {
     public static final AttributeKey<byte[]> SERVER_CHALLENGE = AttributeKey.valueOf("server_challenge");
 
     public static ByteBuf buildV1Challenge(int sessionId, byte[] challenge) {
-        // v5 Login Response (Pure Binary): 401 Unauthorized / Challenge
-        // Frame: [10][28][02][02][00 00][SID:4 LE][Challenge:32] (Total 42 bytes)
-        // Type: 0x02 (Login Response), Status: 0x02 (Challenge/Auth Needed)
+        // Aligned to EHome v1/v4 Challenge Sequence (Type 0x01, Status 0x01)
+        // Body: [Type:0x01][Status:0x01][Interval:0x0000][SID:4 LE][Challenge:32]
         ByteBuf buf = Unpooled.buffer(42);
         buf.writeByte(0x10);          // Marker
         buf.writeByte(40);            // Body len 40
-        buf.writeByte(0x02);          // Type: Login Response (0x02)
-        buf.writeByte(0x01);          // Status: Authorized (0x01) - Test
-        buf.writeShortLE(0);          // Interval (0 for challenge)
+        buf.writeByte(0x01);          // Type: Login Response (0x01)
+        buf.writeByte(0x01);          // Status: Challenge Required (0x01)
+        buf.writeShortLE(0);          // Interval (0 for challenge phase)
         buf.writeIntLE(sessionId);    // Session ID
-        buf.writeBytes(challenge);    // 32-byte challenge
+        buf.writeBytes(challenge);    // 32-byte server-side nonce
+        return buf;
+    }
         return buf;
     }
 
