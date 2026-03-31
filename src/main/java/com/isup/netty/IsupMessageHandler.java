@@ -32,16 +32,11 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
         if (login != null) {
             String deviceId = login.deviceId();
-            log.info("FULL_HANDSHAKE: Device {} connecting via 42-byte ACK (sid=12345)", deviceId);
+            log.info("STABILIZING (Final Try): {} using pure 42-byte ACK (sid=1)", deviceId);
             
-            // 1. Send FULL Binary Register ACK (42 bytes total)
-            // This is the official size expected by modern firmware
-            ctx.write(IsupProtocol.buildV1RegisterResponse(12345, 60));
-            
-            // 2. Send XML TimeSync
-            ctx.write(IsupProtocol.buildV5XmlTimeSync(12345, deviceId));
-            
-            ctx.flush();
+            // 1. Send ONLY the Full ACK (42 bytes). No extra packets!
+            // Using sid=1 to be as safe as possible for EHome 1.0
+            ctx.writeAndFlush(IsupProtocol.buildV1RegisterResponse(1, 60));
             
             deviceService.onDeviceConnected(deviceId, ip);
         }
