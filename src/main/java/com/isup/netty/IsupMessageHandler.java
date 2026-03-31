@@ -124,12 +124,15 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             // EHome 5.0 — STX=0x20 binary frame
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
         } else {
-            // SUPER-HYBRID: Send BOTH Binary and XML for maximum compatibility
+            // SUPER-HYBRID: Send BOTH Binary and XML + TimeSync
             // 1. Classic Binary Register ACK (Type 0x01)
             ctx.write(IsupProtocol.buildV1RegisterResponseMini(sid, 60));
             
             // 2. Modern XML REG_RESULT (Type 0x54)
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
+
+            // 3. MANDATORY TIME SYNC: Required for v5.0 to stay online
+            ctx.write(IsupProtocol.buildV5XmlTimeSync(sid, deviceId));
         }
         
         ctx.flush();
