@@ -74,10 +74,12 @@ public class DeviceService {
             if (ip.startsWith("172.") || ip.startsWith("10.") && currentIp != null && !currentIp.isEmpty() && !currentIp.startsWith("172.")) {
                 ip = currentIp;
             }
-            deviceRepo.updateStatus(deviceId, "online", Instant.now(), ip);
-            // Ensure deviceIp is also updated for IsapiService calls
-            existing.get().setDeviceIp(ip);
-            deviceRepo.save(existing.get());
+            Device d = existing.get();
+            d.setStatus("online");
+            d.setLastSeen(Instant.now());
+            d.setIpAddress(ip);
+            d.setDeviceIp(ip);
+            deviceRepo.save(d);
 
             // Async capability detection via ISAPI
             capabilityDetector.detectAsync(deviceId, ip);

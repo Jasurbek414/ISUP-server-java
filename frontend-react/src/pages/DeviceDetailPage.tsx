@@ -27,6 +27,7 @@ export default function DeviceDetailPage() {
     queryKey: ['device', deviceId],
     queryFn: () => api.get(`/devices/${deviceId}`).then(r => r.data),
     enabled: !!deviceId,
+    refetchInterval: 10_000,
   })
 
   if (devLoading) return (

@@ -121,37 +121,16 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
                  deviceId, sid, ver, (password!=null && !password.isEmpty()));
         
         if (ver == IsupPacket.VERSION_V5) {
-            // EHome 5.0 — STX=0x20 XML success frame
+            // EHome 5.0 — STX=0x20 binary frame
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
         } else {
-            // V1 / V4 binary — STX=0x10
-            
-            // 1. Binary REG_RESULT (Type 0x08) - SID ACK
-            // Headers: [10] [LEN:1] [TYPE:1] [FLAGS:1] [RESERVED:2] [SID:4]
-            io.netty.buffer.ByteBuf b1 = io.netty.buffer.Unpooled.buffer(10);
-            b1.writeByte(0x10); b1.writeByte(0x08); b1.writeByte(0x02); // 0x02 = Result? Wait! 
-            // Correct V1 Auth Result is Type 0x08 with BodyLen=4 (sid)
-            b1.setByte(1, 0x08); b1.setByte(2, 0x02); // Result-Success
-            b1.writeShortLE(60); // TTL 60s
-            b1.writeIntLE(sid);
-            ctx.write(b1);
-            
-            // 2. Binary TimeSync (Type 0x09) - V4 terminals often require this
-            io.netty.buffer.ByteBuf b2 = io.netty.buffer.Unpooled.buffer(11); // 10 + 1?
-            b2.writeByte(0x10); b2.writeByte(0x09); b2.writeByte(0x09); // Type 0x09
-            b2.writeIntLE(sid); b2.writeIntLE((int)(System.currentTimeMillis()/1000));
-            b2.writeByte(0x00); // Checksum or Null
-            ctx.write(b2);
-
-            // 3. XML REG_RESULT (Type 0x54) - EHome 5.0 style
+            // V1 / V4 / Hybrid — STX=0x10 with XML REG_RESULT
+            // This is the most compatible way for modern v5.0 devices on v1 transport
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
         }
         
         ctx.flush();
         
-        // DRAIN QUEUE: Send pending commands (only if triggered by user)
-        com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
-
         // Online Marker — call immediately (device may disconnect quickly after ACK)
         if (deviceService.onDeviceConnected(deviceId, ip)) {
             log.info("ONLINE: Device {} registered (sid={}, ip={})", deviceId, sid, ip);

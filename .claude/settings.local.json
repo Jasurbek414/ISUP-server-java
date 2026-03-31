@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(./mvnw compile:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell:*)"
+    ]
+  }
+}
