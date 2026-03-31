@@ -32,11 +32,23 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
         IsupProtocol.LoginRequest login = IsupProtocol.parseLoginRequest(packet.getPayload());
         if (login != null) {
             String deviceId = login.deviceId();
-            log.info("STABILIZING (Final Try): {} using pure 42-byte ACK (sid=1)", deviceId);
+            log.info("CHALLENGE_MODE: {} using 2-step challenge for security", deviceId);
             
-            // 1. Send ONLY the Full ACK (42 bytes). No extra packets!
-            // Using sid=1 to be as safe as possible for EHome 1.0
-            ctx.writeAndFlush(IsupProtocol.buildV1RegisterResponse(1, 60));
+            // 1. Generate a random challenge (32 bytes)
+            byte[] serverChallenge = new byte[32];
+            new java.util.Random().nextBytes(serverChallenge);
+            
+            // 2. Wrap it into a Challenge Response (Status 0x01)
+            int tempSid = 1234;
+            byte[] challengePayload = new byte[1 + 4 + 32];
+            challengePayload[0] = 0x01; // Status: challenge required
+            challengePayload[1] = (byte)(tempSid);
+            challengePayload[2] = (byte)(tempSid >> 8);
+            challengePayload[3] = (byte)(tempSid >> 16);
+            challengePayload[4] = (byte)(tempSid >> 24);
+            System.arraycopy(serverChallenge, 0, challengePayload, 5, 32);
+            
+            ctx.writeAndFlush(IsupProtocol.encode(MessageType.LOGIN_RESPONSE, tempSid, packet.getSequenceNo(), challengePayload));
             
             deviceService.onDeviceConnected(deviceId, ip);
         }
