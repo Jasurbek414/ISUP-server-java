@@ -125,50 +125,32 @@ public class IsupMessageHandler extends SimpleChannelInboundHandler<IsupPacket> 
             ctx.write(IsupProtocol.buildV5XmlSuccessV5(sid, deviceId, password));
         } else {
             // V1 / V4 binary — STX=0x10
-            // SHOTGUN: Send all variants for total compatibility
             
-            // 1. Core Binary Result (Type 0x02) - Standard for V4
+            // 1. Binary REG_RESULT (Type 0x08) - SID ACK
+            // Headers: [10] [LEN:1] [TYPE:1] [FLAGS:1] [RESERVED:2] [SID:4]
             io.netty.buffer.ByteBuf b1 = io.netty.buffer.Unpooled.buffer(10);
-            b1.writeByte(0x10); b1.writeByte(8); b1.writeByte(0x02); // Type 0x02 (Result)
-            b1.writeByte(0x00); b1.writeShortLE(60); b1.writeIntLE(sid);
+            b1.writeByte(0x10); b1.writeByte(0x08); b1.writeByte(0x02); // 0x02 = Result? Wait! 
+            // Correct V1 Auth Result is Type 0x08 with BodyLen=4 (sid)
+            b1.setByte(1, 0x08); b1.setByte(2, 0x02); // Result-Success
+            b1.writeShortLE(60); // TTL 60s
+            b1.writeIntLE(sid);
             ctx.write(b1);
             
-            // 2. Binary TimeSync (Type 0x09) - V4 terminals often require this to stay Online
-            io.netty.buffer.ByteBuf b2 = io.netty.buffer.Unpooled.buffer(14);
-            b2.writeByte(0x10); b2.writeByte(12); b2.writeByte(0x09); // Type 0x09 (TimeSync)
-            long now = System.currentTimeMillis() / 1000;
-            b2.writeIntLE(sid); b2.writeIntLE((int)now);
+            // 2. Binary TimeSync (Type 0x09) - V4 terminals often require this
+            io.netty.buffer.ByteBuf b2 = io.netty.buffer.Unpooled.buffer(11); // 10 + 1?
+            b2.writeByte(0x10); b2.writeByte(0x09); b2.writeByte(0x09); // Type 0x09
+            b2.writeIntLE(sid); b2.writeIntLE((int)(System.currentTimeMillis()/1000));
+            b2.writeByte(0x00); // Checksum or Null
             ctx.write(b2);
 
-            // 3. XML REG_RESULT (Type 0x54) - Some V4 terminals wait for this (EHome 5.0 terminals on V1 wrapper)
+            // 3. XML REG_RESULT (Type 0x54) - EHome 5.0 style
             ctx.write(IsupProtocol.buildV5XmlSuccessFull(sid, deviceId, password));
         }
         
         ctx.flush();
         
-        // TRIPLE-THREAT REBOOT: Try multiple formats at once
-        if ("DSK1T343EWX".equals(deviceId)) {
-            System.out.println("TRIPLE_REBOOT_TRIGGER: Trying all forms for " + deviceId);
-            
-            // 1. Binary path only
-            ctx.channel().write(com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sid, "/ISAPI/System/reboot", "PUT", ""));
-            
-            // 2. Binary path with XML body
-            String xmlBody = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><reboot xmlns=\"http://www.isapi.org/ver20/utils\" version=\"2.0\"/>";
-            ctx.channel().write(com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sid, "/ISAPI/System/reboot", "PUT", xmlBody));
-            
-            // 3. Protocol-level XML packet (0x54)
-            String protoXml = "<PPVSPMessage><Version>5.0</Version><CommandType>REQUEST</CommandType><Command>SYSTEM_REBOOT</Command><Params><DeviceID>"+deviceId+"</DeviceID></Params></PPVSPMessage>";
-            ctx.channel().write(com.isup.protocol.IsupProtocol.encodeV1(io.netty.buffer.Unpooled.wrappedBuffer(protoXml.getBytes()), (byte)0x54));
-            
-            // 4. DOOR OPEN (Testing if ANY command works)
-            String doorXml = "<RemoteControlDoor><cmd>open</cmd></RemoteControlDoor>";
-            ctx.channel().write(com.isup.protocol.IsupProtocol.buildV1IsapiTransparent(sid, "/ISAPI/AccessControl/RemoteControl/door/1", "PUT", doorXml));
-
-            ctx.channel().flush();
-        } else {
-            com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
-        }
+        // DRAIN QUEUE: Send pending commands (only if triggered by user)
+        com.isup.isapi.IsapiService.drainQueue(deviceId, sid, ctx.channel());
 
         // Online Marker — call immediately (device may disconnect quickly after ACK)
         if (deviceService.onDeviceConnected(deviceId, ip)) {

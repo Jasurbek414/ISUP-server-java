@@ -202,7 +202,7 @@ Content-Type: application/json
 
 {
   "username": "admin",
-  "password": "admin123"
+  "password": "isup1234"
 }
 ```
 
