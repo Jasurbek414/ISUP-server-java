@@ -7,6 +7,8 @@ import com.isup.protocol.MessageType;
 import com.isup.protocol.IsupProtocol;
 import com.isup.protocol.HmacAuthenticator;
 import com.isup.api.service.DeviceService;
+import com.isup.event.AttendanceEvent;
+import com.isup.entity.EventLog;
 import com.isup.security.IpBanManager;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
